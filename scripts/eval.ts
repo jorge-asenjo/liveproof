@@ -12,6 +12,7 @@
 // (1 in 23^5 = 6.4 million). This eval measures the attacks that depend on the model.
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { GESTURE_B_WINDOW_MS } from "../src/lib/challenge";
 import type { Gesture } from "../src/lib/gestures";
 import { decide, observe } from "../src/lib/verify";
 
@@ -37,7 +38,6 @@ const flag = (name: string) => {
 const model = flag("--model") ?? process.env.VERIFY_MODEL ?? "claude-opus-5-5";
 const concurrency = Number(flag("--concurrency") ?? 3);
 const dir = args[0] ?? process.env.ATTEMPTS_DIR ?? "../eval/attempts";
-const GESTURE_B_WINDOW_MS = 10_000;
 
 async function toDataUrl(file: string) {
   return "data:image/jpeg;base64," + (await readFile(file)).toString("base64");

@@ -2,7 +2,7 @@
 // crypto, never from the model. State lives in memory: Render's free plan runs one
 // instance, and a challenge only lives a few minutes.
 import { randomBytes, randomInt } from "node:crypto";
-import { GESTURES, type Gesture } from "./gestures";
+import { CHALLENGE_GESTURES, type Gesture } from "./gestures";
 import type { Listing } from "./listing";
 import type { Seller } from "./session";
 import type { Decision, Observation } from "./verify";
@@ -11,7 +11,9 @@ import type { Decision, Observation } from "./verify";
 const CODE_ALPHABET = "ACDEFHJKMNPRTUVWXY34679";
 export const CODE_LENGTH = 5;
 export const WRITE_WINDOW_MS = 3 * 60_000; // from showing the code to moment 1
-export const GESTURE_B_WINDOW_MS = 10_000; // from revealing the surprise gesture to moment 2
+// From revealing the surprise gesture to receiving moment 2, upload included. 10 s was too
+// tight on Render (a genuine attempt took 9.6 s); 15 s is still far too short to fake a frame.
+export const GESTURE_B_WINDOW_MS = 15_000;
 export const MAX_FRAMES_PER_MOMENT = 3;
 export const MAX_FRAME_CHARS = 1_500_000; // ~1.1 MB of JPEG per frame
 
@@ -57,7 +59,7 @@ function randomCode() {
 }
 
 function randomGesture(except?: Gesture): Gesture {
-  const options = GESTURES.filter((x) => x !== except);
+  const options = CHALLENGE_GESTURES.filter((x) => x !== except);
   return options[randomInt(options.length)];
 }
 

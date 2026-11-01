@@ -102,8 +102,9 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
             <p className="font-medium">Your live proof takes about a minute</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700">
               <li>Have a pen and a piece of paper ready.</li>
-              <li>We show you a fresh code. Write it on the paper and put it next to the item.</li>
-              <li>Make the hand gesture we ask for. Then a surprise one, within 10 seconds.</li>
+              <li>We show you a fresh code. Write it on the paper.</li>
+              <li>Put the paper and the item on the table, both in view of the camera. No need to hold them.</li>
+              <li>Make the hand gesture we ask for with one hand. Then a surprise one, within 15 seconds.</li>
               <li>Also show: {draft.listing.proof_detail}.</li>
             </ol>
           </div>

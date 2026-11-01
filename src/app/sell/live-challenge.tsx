@@ -125,11 +125,19 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
         if (!recognizer || !video || video.readyState < 2 || video.currentTime === lastVideoTime) return;
         lastVideoTime = video.currentTime;
         const result = recognizer.recognizeForVideo(video, performance.now());
+        // One hand may be holding the paper or the item: the target gesture counts if either hand shows it.
+        const p = phaseRef.current;
+        const target = p.name === "moment1" ? p.gestureA : p.name === "moment2" ? p.gestureB : null;
         let best: Gesture | null = null;
         let bestScore = MIN_SCORE;
         for (const hand of result.gestures) {
           const top = hand[0];
-          if (top && top.score >= bestScore && isGesture(top.categoryName)) {
+          if (!top || top.score < MIN_SCORE || !isGesture(top.categoryName)) continue;
+          if (top.categoryName === target) {
+            best = target;
+            break;
+          }
+          if (top.score >= bestScore) {
             best = top.categoryName;
             bestScore = top.score;
           }
@@ -285,7 +293,8 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
           <p className="text-sm uppercase tracking-widest text-neutral-500">Write this code on the paper</p>
           <p className="font-mono text-5xl font-bold tracking-[0.3em]">{phase.code}</p>
           <p className="text-lg">
-            Put the paper next to the item, then show {GESTURE_INFO[phase.gestureA].emoji}{" "}
+            Lean the paper next to the item on the table, both in view. Then, with one hand, show{" "}
+            {GESTURE_INFO[phase.gestureA].emoji}{" "}
             <strong>{GESTURE_INFO[phase.gestureA].label}</strong>. Also show: {phase.proofDetail}.
           </p>
           {(tracker !== "ready" || now - phase.since > MANUAL_CAPTURE_AFTER_MS) && (
