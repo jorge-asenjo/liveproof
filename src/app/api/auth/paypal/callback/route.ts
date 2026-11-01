@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
-import { identityFromCode } from "@/lib/paypal";
+import { baseUrl, identityFromCode } from "@/lib/paypal";
+import { setSeller } from "@/lib/session";
 
-// PayPal redirects here after the seller logs in. For now it returns the verified
-// identity as JSON; the real flow will store it and bind it to the live proof.
+// PayPal redirects here after the seller logs in. The verified identity is stored in a
+// signed cookie and the seller continues to /sell. /api/auth/me shows what was stored.
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest) {
   }
   try {
     const identity = await identityFromCode(code);
-    return Response.json({ identity });
+    await setSeller(identity);
+    return Response.redirect(`${baseUrl()}/sell`, 303);
   } catch (err) {
     return Response.json({ error: "paypal_login_failed", detail: String(err) }, { status: 502 });
   }

@@ -1,0 +1,56 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { getSeller } from "@/lib/session";
+import SellerFlow from "./seller-flow";
+
+export const metadata: Metadata = { title: "Sell with live proof · LiveProof" };
+
+export default function SellPage() {
+  return (
+    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-8">
+        <header className="flex items-center justify-between">
+          <Link href="/" className="text-lg font-semibold tracking-tight">
+            LiveProof
+          </Link>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">PayPal sandbox</span>
+        </header>
+        <Suspense fallback={<p className="text-neutral-500">Loading…</p>}>
+          <SellerGate />
+        </Suspense>
+      </div>
+    </main>
+  );
+}
+
+async function SellerGate() {
+  await connection(); // per-request: the session check uses the current time
+  const seller = await getSeller();
+  if (!seller) {
+    return (
+      <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+        <h1 className="text-2xl font-semibold">First, log in with PayPal</h1>
+        <p className="text-neutral-600">
+          Your live proof is tied to the PayPal account you log in with. Buyers can only pay that account.
+        </p>
+        <a
+          href="/api/auth/paypal/start"
+          className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white hover:bg-[#005ea6]"
+        >
+          Log in with PayPal
+        </a>
+      </section>
+    );
+  }
+  return (
+    <SellerFlow
+      seller={{
+        name: seller.name ?? "PayPal user",
+        email: seller.email ?? "",
+        verified: seller.verified_account === true || seller.verified_account === "true",
+      }}
+    />
+  );
+}

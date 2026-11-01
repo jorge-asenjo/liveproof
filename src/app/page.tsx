@@ -10,10 +10,10 @@ export default function Home() {
         PayPal accounts are now common.
       </p>
       <a
-        href="/api/auth/paypal/start"
+        href="/sell"
         className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white hover:bg-[#005ea6]"
       >
-        Seller: log in with PayPal (sandbox)
+        I&apos;m selling: start a live proof
       </a>
     </main>
   );

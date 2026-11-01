@@ -9,7 +9,7 @@ export async function GET() {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 600,
+    maxAge: 1800, // the sandbox login can take a while (slow pages, retries)
   });
   return response;
 }
