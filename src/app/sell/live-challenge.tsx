@@ -19,6 +19,7 @@ const UPLOAD_MARGIN_MS = 1500; // shown countdown ends a bit early to leave time
 const MANUAL_CAPTURE_AFTER_MS = 8000;
 
 export type VerifyResult = {
+  challengeId: string;
   passed: boolean;
   checks: { id: string; label: string; ok: boolean; hard: boolean; detail?: string }[];
   item: string;
@@ -223,7 +224,7 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
       const frames = await captureFrames();
       go({ name: "verifying", since: Date.now() });
       const body = await postJson(`/api/challenge/${p.challengeId}/moment2`, { frames });
-      onResult(body as VerifyResult);
+      onResult({ ...body, challengeId: p.challengeId } as VerifyResult);
     } catch (err) {
       fail(err);
     } finally {

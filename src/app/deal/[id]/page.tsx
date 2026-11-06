@@ -1,0 +1,226 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { deals, type Deal } from "@/lib/deals";
+import { GESTURE_INFO } from "@/lib/gestures";
+
+export const metadata: Metadata = {
+  title: "Live proof deal · LiveProof",
+  robots: { index: false, follow: false },
+};
+
+export default function DealPage({ params, searchParams }: PageProps<"/deal/[id]">) {
+  return (
+    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 py-8">
+        <header className="flex items-center justify-between">
+          <Link href="/" className="text-lg font-semibold tracking-tight">
+            LiveProof
+          </Link>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">PayPal sandbox</span>
+        </header>
+        <Suspense fallback={<p className="text-neutral-500">Loading the deal…</p>}>
+          <DealView params={params} searchParams={searchParams} />
+        </Suspense>
+      </div>
+    </main>
+  );
+}
+
+async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, "params" | "searchParams">) {
+  await connection(); // per-request: payment status and "proved N minutes ago"
+  const { id } = await params;
+  const { payment: paymentParam } = await searchParams;
+  const deal = await deals.get(id);
+  if (!deal) {
+    return (
+      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+        <h1 className="text-2xl font-semibold">This deal does not exist</h1>
+        <p className="mt-2 text-neutral-600">Check the link the seller sent you. Do not pay a seller who cannot show a live proof.</p>
+      </section>
+    );
+  }
+  const now = requestTime();
+  return (
+    <>
+      {paymentParam === "cancelled" && !deal.payment && (
+        <p className="rounded-xl bg-neutral-100 px-4 py-3 text-sm text-neutral-700">Payment cancelled. Nothing was charged.</p>
+      )}
+      {paymentParam === "error" && !deal.payment && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">PayPal could not complete the payment. Nothing was charged. Try again.</p>
+      )}
+
+      <ItemCard deal={deal} />
+      {deal.payment ? <PaidCard deal={deal} /> : <PayCard deal={deal} />}
+      <ProofCard deal={deal} now={now} />
+    </>
+  );
+}
+
+// Server component rendered once per request (after connection()), so reading the clock is fine.
+function requestTime() {
+  return Date.now();
+}
+
+function money(value: string, currency: string) {
+  const n = Number(value);
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
+  } catch {
+    return `${value} ${currency}`;
+  }
+}
+
+function ago(ms: number) {
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.round(h / 24)} days ago`;
+}
+
+function ItemCard({ deal }: { deal: Deal }) {
+  return (
+    <section className="flex flex-col gap-1 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+      <p className="text-sm uppercase tracking-widest text-neutral-500">{deal.item.category}</p>
+      <h1 className="text-2xl font-semibold">{deal.item.title}</h1>
+      <p className="text-3xl font-semibold">{money(deal.amount.value, deal.amount.currency)}</p>
+      {deal.item.condition && <p className="text-neutral-600">{deal.item.condition}</p>}
+    </section>
+  );
+}
+
+function SellerAccount({ deal }: { deal: Deal }) {
+  const s = deal.seller;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0070e0] text-lg font-semibold text-white">
+        {s.name.slice(0, 1).toUpperCase()}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{s.name}</p>
+        {s.email && <p className="truncate text-sm text-neutral-600">{s.email}</p>}
+        {s.payerId && <p className="truncate font-mono text-xs text-neutral-400">PayPal ID {s.payerId}</p>}
+      </div>
+      <span
+        className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${s.verified ? "bg-emerald-100 text-emerald-800" : "bg-neutral-100 text-neutral-600"}`}
+      >
+        {s.verified ? "Verified PayPal account" : "Not verified by PayPal"}
+      </span>
+    </div>
+  );
+}
+
+function PayCard({ deal }: { deal: Deal }) {
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+      <div>
+        <h2 className="text-lg font-semibold">This link only pays the account that did the live proof</h2>
+        <p className="mt-1 text-sm text-neutral-600">
+          LiveProof fixes the payee when it creates the PayPal order, so the money cannot go anywhere else, even if someone copies
+          this link.
+        </p>
+      </div>
+      <SellerAccount deal={deal} />
+      <form action={`/api/deal/${deal.id}/pay`} method="post">
+        <button
+          type="submit"
+          className="w-full rounded-full bg-[#ffc439] px-6 py-4 text-lg font-semibold text-[#003087] hover:bg-[#f2ba36]"
+        >
+          Pay {money(deal.amount.value, deal.amount.currency)} with PayPal
+        </button>
+      </form>
+      <p className="text-xs text-neutral-500">
+        PayPal Goods and Services, with buyer protection. If the seller asks you to pay another account, use Friends and Family or pay
+        an invoice they send you, stop: that is not the account that proved it has the item.
+      </p>
+    </section>
+  );
+}
+
+function PaidCard({ deal }: { deal: Deal }) {
+  const p = deal.payment!;
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-2 ring-emerald-500">
+      <div>
+        <h2 className="text-2xl font-semibold text-emerald-700">Paid {money(p.value, p.currency)}</h2>
+        <p className="mt-1 text-sm text-neutral-600">
+          {p.payer.name ? `By ${p.payer.name}, ` : ""}
+          {new Date(p.paidAt).toUTCString()}
+        </p>
+      </div>
+      <SellerAccount deal={deal} />
+      <ul className="flex flex-col gap-2 text-sm">
+        <li className="flex gap-2">
+          <span className={p.payeeMatches ? "text-emerald-600" : "text-red-600"}>{p.payeeMatches ? "✓" : "✗"}</span>
+          <span>
+            {p.payeeMatches
+              ? "PayPal confirms the money went to the account that did the live proof"
+              : "Warning: PayPal reports a different payee than the account that did the live proof"}
+            <span className="text-neutral-500"> · payee {p.payee.email ?? p.payee.merchantId}</span>
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-emerald-600">✓</span>
+          <span>
+            Capture {p.status.toLowerCase()}
+            <span className="font-mono text-neutral-500"> · {p.captureId}</span>
+          </span>
+        </li>
+        {p.sellerProtection && (
+          <li className="flex gap-2">
+            <span className="text-neutral-400">·</span>
+            <span className="text-neutral-600">Seller protection: {p.sellerProtection.toLowerCase().replace(/_/g, " ")}</span>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+function ProofCard({ deal, now }: { deal: Deal; now: number }) {
+  const pr = deal.proof;
+  const a = GESTURE_INFO[pr.gestureA];
+  const b = GESTURE_INFO[pr.gestureB];
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+      <div>
+        <h2 className="text-lg font-semibold">Live proof of possession</h2>
+        <p className="text-sm text-neutral-600">
+          Proved live on camera {ago(now - pr.provedAt)} · {new Date(pr.provedAt).toUTCString()}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <figure className="flex flex-col gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element -- frames are served by our own route */}
+          <img src={`/api/deal/${deal.id}/frame/0`} alt="Moment 1 of the live proof" className="aspect-video w-full rounded-xl bg-neutral-200 object-cover" />
+          <figcaption className="text-sm text-neutral-600">
+            Code <span className="font-mono font-semibold">{pr.code}</span> written by hand, then {a.emoji} {a.label}
+          </figcaption>
+        </figure>
+        <figure className="flex flex-col gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element -- frames are served by our own route */}
+          <img src={`/api/deal/${deal.id}/frame/1`} alt="Moment 2 of the live proof" className="aspect-video w-full rounded-xl bg-neutral-200 object-cover" />
+          <figcaption className="text-sm text-neutral-600">
+            Surprise gesture {b.emoji} {b.label}, {(pr.gestureBDelayMs / 1000).toFixed(1)} s after it was revealed
+          </figcaption>
+        </figure>
+      </div>
+      <ul className="flex flex-col gap-1.5 text-sm">
+        {pr.checks.map((c) => (
+          <li key={c.id} className="flex items-start gap-2">
+            <span className={c.ok ? "text-emerald-600" : c.hard ? "text-red-600" : "text-amber-600"}>{c.ok ? "✓" : c.hard ? "✗" : "!"}</span>
+            <span>{c.label}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-neutral-500">
+        The code and the surprise gesture were random and shown only once the camera was on, so this cannot be an old or prepared
+        photo. Seen on camera: {pr.seen}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the
+        model, decided the result.
+      </p>
+    </section>
+  );
+}

@@ -29,7 +29,7 @@ export async function getSeller(): Promise<Seller | null> {
   if (process.env.NODE_ENV !== "production" && process.env.DEV_FAKE_SELLER === "1") {
     return {
       user_id: "dev-user",
-      payer_id: "DEVPAYERID",
+      payer_id: process.env.DEV_SELLER_PAYER_ID ?? "DEVPAYERID",
       name: "Dev Seller",
       email: process.env.SANDBOX_SELLER_EMAIL ?? "seller@example.com",
       verified_account: true,

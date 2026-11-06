@@ -16,6 +16,8 @@ export const WRITE_WINDOW_MS = 3 * 60_000; // from showing the code to moment 1
 export const GESTURE_B_WINDOW_MS = 15_000;
 export const MAX_FRAMES_PER_MOMENT = 3;
 export const MAX_FRAME_CHARS = 1_500_000; // ~1.1 MB of JPEG per frame
+// A passed proof can be turned into a buyer link for this long. After that, prove again.
+export const DEAL_WINDOW_MS = 30 * 60_000;
 
 export type Draft = { id: string; sellerId: string; listingText: string; listing: Listing; createdAt: number };
 
@@ -40,6 +42,7 @@ export type Challenge = {
   decision?: Decision;
   verify?: { model: string; latencyMs: number; costUsd: number | null };
   error?: string;
+  dealId?: string;
 };
 
 type Store = { drafts: Map<string, Draft>; challenges: Map<string, Challenge> };
@@ -63,7 +66,16 @@ function randomGesture(except?: Gesture): Gesture {
   return options[randomInt(options.length)];
 }
 
+// Frames are kept in memory only until the buyer link is made. Drop old drafts and
+// challenges so a long-running server does not fill its memory (512 MB on Render free).
+const KEEP_MS = 2 * 60 * 60_000;
+function pruneStore(now: number) {
+  for (const [id, d] of store.drafts) if (now - d.createdAt > KEEP_MS) store.drafts.delete(id);
+  for (const [id, c] of store.challenges) if (now - c.createdAt > KEEP_MS) store.challenges.delete(id);
+}
+
 export function createChallenge(draft: Draft, seller: Seller): Challenge {
+  pruneStore(Date.now());
   const challenge: Challenge = {
     id: newId(),
     draftId: draft.id,

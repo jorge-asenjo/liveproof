@@ -41,6 +41,148 @@ export type PayPalIdentity = {
   account_type?: string;
 };
 
+// ---------------------------------------------------------------------------
+// Orders v2: the buyer pays the seller directly. LiveProof is never the payee.
+
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function appToken() {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.value;
+  const res = await fetch(`${API}/v1/oauth2/token`, {
+    method: "POST",
+    headers: { Authorization: basicAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: "grant_type=client_credentials",
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(`oauth ${res.status}: ${JSON.stringify(body)}`);
+  cachedToken = { value: body.access_token, expiresAt: Date.now() + (body.expires_in - 60) * 1000 };
+  return cachedToken.value;
+}
+
+async function ordersCall(path: string, init: { method: string; body?: unknown; requestId?: string }) {
+  const res = await fetch(`${API}${path}`, {
+    method: init.method,
+    headers: {
+      Authorization: `Bearer ${await appToken()}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+      ...(init.requestId ? { "PayPal-Request-Id": init.requestId } : {}),
+    },
+    body: init.body ? JSON.stringify(init.body) : undefined,
+  });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+export class PayPalError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body: unknown,
+  ) {
+    super(message);
+  }
+}
+
+export type Payee = { merchant_id: string } | { email_address: string };
+
+export type NewOrder = {
+  dealId: string;
+  description: string;
+  amount: { value: string; currency: string };
+  payee: Payee;
+  returnUrl: string;
+  cancelUrl: string;
+};
+
+// Creates the order with the payee fixed by the server. Returns the order id and the
+// PayPal page where the buyer approves the payment.
+export async function createOrder(order: NewOrder): Promise<{ id: string; approveUrl: string }> {
+  const { ok, status, body } = await ordersCall("/v2/checkout/orders", {
+    method: "POST",
+    requestId: `create-${order.dealId}-${Date.now()}`,
+    body: {
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          reference_id: order.dealId,
+          custom_id: order.dealId,
+          description: order.description.slice(0, 127),
+          amount: { currency_code: order.amount.currency, value: order.amount.value },
+          payee: order.payee,
+        },
+      ],
+      payment_source: {
+        paypal: {
+          experience_context: {
+            user_action: "PAY_NOW",
+            shipping_preference: "GET_FROM_FILE",
+            return_url: order.returnUrl,
+            cancel_url: order.cancelUrl,
+          },
+        },
+      },
+    },
+  });
+  if (!ok) throw new PayPalError(`create order ${status}`, status, body);
+  const approve = body.links?.find((l: { rel: string }) => l.rel === "payer-action" || l.rel === "approve");
+  if (!approve?.href) throw new PayPalError("create order: no approval link", status, body);
+  return { id: body.id, approveUrl: approve.href };
+}
+
+export type CapturedOrder = {
+  orderId: string;
+  status: string;
+  customId: string | null;
+  payee: { merchantId: string | null; email: string | null };
+  payer: { name: string | null; email: string | null };
+  capture: { id: string; status: string; value: string; currency: string; sellerProtection: string | null } | null;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- PayPal order JSON
+function toCaptured(body: any): CapturedOrder {
+  const unit = body.purchase_units?.[0] ?? {};
+  const capture = unit.payments?.captures?.[0];
+  const payerName = [body.payer?.name?.given_name, body.payer?.name?.surname].filter(Boolean).join(" ");
+  return {
+    orderId: body.id,
+    status: body.status,
+    customId: unit.custom_id ?? null,
+    payee: { merchantId: unit.payee?.merchant_id ?? null, email: unit.payee?.email_address ?? null },
+    payer: { name: payerName || null, email: body.payer?.email_address ?? null },
+    capture: capture
+      ? {
+          id: capture.id,
+          status: capture.status,
+          value: capture.amount?.value,
+          currency: capture.amount?.currency_code,
+          sellerProtection: capture.seller_protection?.status ?? null,
+        }
+      : null,
+  };
+}
+
+export async function getOrder(orderId: string): Promise<CapturedOrder> {
+  const { ok, status, body } = await ordersCall(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, { method: "GET" });
+  if (!ok) throw new PayPalError(`get order ${status}`, status, body);
+  return toCaptured(body);
+}
+
+// Captures an approved order. Safe to repeat: the request id makes PayPal return the
+// first result, and an order that was already captured is read back instead.
+export async function captureOrder(orderId: string): Promise<CapturedOrder> {
+  const { ok, status, body } = await ordersCall(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+    method: "POST",
+    requestId: `capture-${orderId}`,
+  });
+  if (ok) return toCaptured(body);
+  const issue = body?.details?.[0]?.issue;
+  if (issue === "ORDER_ALREADY_CAPTURED") return getOrder(orderId);
+  throw new PayPalError(`capture ${status}${issue ? ` ${issue}` : ""}`, status, body);
+}
+
+// ---------------------------------------------------------------------------
+
 export async function identityFromCode(code: string): Promise<PayPalIdentity> {
   const tokenRes = await fetch(`${API}/v1/oauth2/token`, {
     method: "POST",

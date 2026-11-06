@@ -145,17 +145,96 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
           {result.tamperingSigns.length > 0 && (
             <p className="text-sm text-amber-700">Warnings: {result.tamperingSigns.join("; ")}</p>
           )}
+          {result.passed && draft && <BuyerLink challengeId={result.challengeId} listing={draft.listing} />}
           <button
             onClick={() => {
               setResult(null);
               setLive(false);
             }}
-            className="w-fit rounded-full bg-neutral-900 px-6 py-3 font-medium text-white"
+            className={result.passed ? "w-fit text-sm text-neutral-500 underline" : "w-fit rounded-full bg-neutral-900 px-6 py-3 font-medium text-white"}
           >
-            {result.passed ? "Do it again" : "Try again"}
+            {result.passed ? "Do the live proof again" : "Try again"}
           </button>
         </section>
       )}
+    </div>
+  );
+}
+
+function BuyerLink({ challengeId, listing }: { challengeId: string; listing: Listing }) {
+  const [amount, setAmount] = useState(listing.price != null ? String(listing.price) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const currency = ["USD", "EUR", "GBP", "CAD", "AUD"].includes(listing.currency?.toUpperCase()) ? listing.currency.toUpperCase() : "USD";
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/deal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId, amount }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Something went wrong");
+      setUrl(body.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (url) {
+    return (
+      <div className="flex flex-col gap-3 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+        <p className="font-medium">Send this link to your buyer</p>
+        <p className="break-all rounded-lg bg-white px-3 py-2 font-mono text-sm ring-1 ring-emerald-200">{url}</p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(url);
+              setCopied(true);
+            }}
+            className="rounded-full bg-neutral-900 px-5 py-2 text-sm font-medium text-white"
+          >
+            {copied ? "Copied" : "Copy link"}
+          </button>
+          <a href={url} target="_blank" rel="noreferrer" className="rounded-full px-5 py-2 text-sm font-medium text-[#0070e0] ring-1 ring-[#0070e0]">
+            Open buyer page
+          </a>
+        </div>
+        <p className="text-sm text-neutral-600">The buyer sees your live proof and pays only your PayPal account.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-neutral-100 p-4">
+      <p className="font-medium">Create the buyer link</p>
+      <label className="flex items-center gap-2">
+        <span className="text-neutral-600">Price</span>
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(",", "."))}
+          inputMode="decimal"
+          placeholder="450"
+          className="w-32 rounded-lg border border-neutral-300 bg-white px-3 py-2 outline-none focus:border-[#0070e0]"
+        />
+        <span className="text-neutral-600">{currency}</span>
+      </label>
+      <button
+        onClick={create}
+        disabled={busy || !amount}
+        className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white disabled:opacity-40"
+      >
+        {busy ? "Creating…" : "Create buyer link"}
+      </button>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <p className="text-sm text-neutral-600">Payments through this link can only go to the PayPal account you logged in with.</p>
     </div>
   );
 }
