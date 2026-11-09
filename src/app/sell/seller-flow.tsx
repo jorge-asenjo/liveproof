@@ -140,7 +140,7 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
             ))}
           </ul>
           <p className="text-sm text-neutral-500">
-            Seen on camera: {result.item}. Checked by {result.model} in {(result.verifyMs / 1000).toFixed(1)} s.
+            Seen on camera: {result.item.replace(/[.\s]+$/, "")}. Checked by {result.model} in {(result.verifyMs / 1000).toFixed(1)} s.
           </p>
           {result.tamperingSigns.length > 0 && (
             <p className="text-sm text-amber-700">Warnings: {result.tamperingSigns.join("; ")}</p>

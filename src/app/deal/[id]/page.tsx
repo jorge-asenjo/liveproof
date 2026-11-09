@@ -218,7 +218,7 @@ function ProofCard({ deal, now }: { deal: Deal; now: number }) {
       </ul>
       <p className="text-xs text-neutral-500">
         The code and the surprise gesture were random and shown only once the camera was on, so this cannot be an old or prepared
-        photo. Seen on camera: {pr.seen}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the
+        photo. Seen on camera: {pr.seen.replace(/[.\s]+$/, "")}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the
         model, decided the result.
       </p>
     </section>
