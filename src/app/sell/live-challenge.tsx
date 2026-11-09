@@ -36,7 +36,15 @@ type Phase =
   | { name: "verifying"; since: number }
   | { name: "error"; message: string };
 
-export default function LiveChallenge({ draftId, onResult }: { draftId: string; onResult: (r: VerifyResult) => void }) {
+export default function LiveChallenge({
+  draftId,
+  computer,
+  onResult,
+}: {
+  draftId: string;
+  computer: boolean;
+  onResult: (r: VerifyResult) => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const phaseRef = useRef<Phase>({ name: "starting" });
   const busyRef = useRef(false);
@@ -47,7 +55,7 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
   const [phase, setPhase] = useState<Phase>({ name: "starting" });
   const [seen, setSeen] = useState<Gesture | null>(null);
   const [tracker, setTracker] = useState<"loading" | "ready" | "failed">("loading");
-  const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [facing, setFacing] = useState<"user" | "environment">(computer ? "user" : "environment");
   const [now, setNow] = useState(0);
 
   const go = useCallback((next: Phase) => {
@@ -281,7 +289,10 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
       {phase.name === "ready" && (
         <div className="flex flex-col gap-3">
           <p className="text-neutral-700">
-            Get your pen and paper ready and frame the item. The code appears when you press the button and is valid for 3 minutes.
+            {computer
+              ? "Get your pen and paper ready and hold the item up to the webcam."
+              : "Get your pen and paper ready and point the back camera at the item on the table."}{" "}
+            The code appears when you press the button and is valid for 3 minutes.
           </p>
           <button onClick={startChallenge} className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white">
             Show my code
@@ -294,7 +305,9 @@ export default function LiveChallenge({ draftId, onResult }: { draftId: string; 
           <p className="text-sm uppercase tracking-widest text-neutral-500">Write this code on the paper</p>
           <p className="font-mono text-5xl font-bold tracking-[0.3em]">{phase.code}</p>
           <p className="text-lg">
-            Lean the paper next to the item on the table, both in view. Then, with one hand, show{" "}
+            {computer
+              ? "Hold the paper and the item up to the webcam, both in view. Then, with your other hand, show"
+              : "Put the paper next to the item on the table, both in view. Then, with your free hand, show"}{" "}
             {GESTURE_INFO[phase.gestureA].emoji}{" "}
             <strong>{GESTURE_INFO[phase.gestureA].label}</strong>. Also show: {phase.proofDetail}.
           </p>

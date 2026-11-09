@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LiveChallenge, { type VerifyResult } from "./live-challenge";
+import { useDevice } from "./use-device";
 
 type Listing = {
   title: string;
@@ -17,11 +18,20 @@ type Listing = {
 const EXAMPLE = `[USA-CA] [H] RTX 3080 Founders Edition, local or shipped [W] PayPal G&S
 Selling my 3080 FE, never mined, always in a case. Comes with the original box. $450 shipped CONUS. Timestamps in comments.`;
 
-export default function SellerFlow({ seller }: { seller: { name: string; email: string; verified: boolean } }) {
+type Draft = { id: string; listing: Listing };
+
+export default function SellerFlow({
+  seller,
+  initialDraft,
+}: {
+  seller: { name: string; email: string; verified: boolean };
+  initialDraft: Draft | null;
+}) {
+  const device = useDevice();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ id: string; listing: Listing } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(initialDraft);
   const [live, setLive] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
 
@@ -98,19 +108,18 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
             {draft.listing.price != null ? `${draft.listing.price} ${draft.listing.currency}` : "No price stated"}
             {draft.listing.condition ? ` · ${draft.listing.condition}` : ""}
           </p>
-          <div className="rounded-xl bg-neutral-100 p-4">
-            <p className="font-medium">Your live proof takes about a minute</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700">
-              <li>Have a pen and a piece of paper ready.</li>
-              <li>We show you a fresh code. Write it on the paper.</li>
-              <li>Put the paper and the item on the table, both in view of the camera. No need to hold them.</li>
-              <li>Make the hand gesture we ask for with one hand. Then a surprise one, within 15 seconds.</li>
-              <li>Also show: {draft.listing.proof_detail}.</li>
-            </ol>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={() => setLive(true)} className="rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white">
-              Start live proof
+          <Instructions computer={device === "computer"} proofDetail={draft.listing.proof_detail} />
+          {device === "computer" && <PhoneHandoff draftId={draft.id} />}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setLive(true)}
+              className={
+                device === "computer"
+                  ? "rounded-full px-6 py-3 font-medium text-[#0070e0] ring-1 ring-[#0070e0]"
+                  : "rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white"
+              }
+            >
+              {device === "computer" ? "Use this computer's camera" : "Start live proof"}
             </button>
             <button onClick={() => setDraft(null)} className="text-sm text-neutral-500 underline">
               Edit listing
@@ -119,7 +128,7 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
         </section>
       )}
 
-      {draft && live && !result && <LiveChallenge draftId={draft.id} onResult={setResult} />}
+      {draft && live && !result && <LiveChallenge draftId={draft.id} computer={device === "computer"} onResult={setResult} />}
 
       {result && (
         <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
@@ -157,6 +166,93 @@ export default function SellerFlow({ seller }: { seller: { name: string; email: 
           </button>
         </section>
       )}
+    </div>
+  );
+}
+
+function Instructions({ computer, proofDetail }: { computer: boolean; proofDetail: string }) {
+  return (
+    <div className="rounded-xl bg-neutral-100 p-4">
+      <p className="font-medium">Your live proof takes about a minute</p>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700">
+        <li>Have a pen and a piece of paper ready.</li>
+        <li>We show you a fresh code. Write it on the paper.</li>
+        {computer ? (
+          <>
+            <li>Hold the paper and the item together in one hand, in front of the webcam.</li>
+            <li>With your other hand, make the gesture we ask for. Then a surprise one, within 15 seconds.</li>
+          </>
+        ) : (
+          <>
+            <li>Put the paper next to the item on a table and point the back camera at both. No need to hold them.</li>
+            <li>With your free hand, make the gesture we ask for. Then a surprise one, within 15 seconds.</li>
+          </>
+        )}
+        <li>Also show: {proofDetail}.</li>
+      </ol>
+      <p className="mt-3 text-sm text-neutral-500">
+        Item too big for the frame? Lean the paper against it, step back until both are in view, and write the code big.
+      </p>
+    </div>
+  );
+}
+
+// On a computer the webcam faces the seller, so the item and the paper have to be held up.
+// A phone's back camera can look down at the table instead: offer to move there, without
+// logging in to PayPal again.
+function PhoneHandoff({ draftId }: { draftId: string }) {
+  const [round, setRound] = useState(0);
+  const [qr, setQr] = useState<{ svg: string; url: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/handoff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draftId }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? "Could not make the QR code");
+        if (!cancelled) {
+          setQr({ svg: body.svg, url: body.url });
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, round]);
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl bg-[#0070e0]/5 p-4 ring-1 ring-[#0070e0]/30 sm:flex-row sm:items-center">
+      <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg bg-white p-2 ring-1 ring-neutral-200">
+        {qr ? (
+          // eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL made by our own API
+          <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.svg)}`} alt="QR code to continue on your phone" className="h-full w-full" />
+        ) : (
+          <span className="text-sm text-neutral-400">{error ? "No QR code" : "Making the QR code…"}</span>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="font-medium">Easier on your phone</p>
+        <p className="text-sm text-neutral-700">
+          Scan this with your phone camera. The back camera can look down at the item on the table, so you only need one hand for
+          the gestures. You stay logged in with the same PayPal account and the same listing.
+        </p>
+        <p className="text-sm text-neutral-500">
+          The code works once, for 10 minutes.{" "}
+          <button onClick={() => setRound((r) => r + 1)} className="underline">
+            New code
+          </button>
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }

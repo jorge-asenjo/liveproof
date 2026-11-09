@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { sellerId, store } from "@/lib/challenge";
 import { getSeller } from "@/lib/session";
 import SellerFlow from "./seller-flow";
 
@@ -28,13 +29,14 @@ export default function SellPage({ searchParams }: PageProps<"/sell">) {
 const LOGIN_NOTICES: Record<string, string> = {
   expired: "Your PayPal login took too long or was interrupted, so we could not finish it. Log in again.",
   failed: "PayPal did not confirm your login. Nothing was saved. Log in again.",
+  qr: "That QR code has expired or was already used. Show a new one on your computer, or log in with PayPal here.",
 };
 
 async function SellerGate({ searchParams }: Pick<PageProps<"/sell">, "searchParams">) {
   await connection(); // per-request: the session check uses the current time
   const seller = await getSeller();
+  const { login, draft: draftParam } = await searchParams;
   if (!seller) {
-    const { login } = await searchParams;
     const notice = typeof login === "string" ? LOGIN_NOTICES[login] : undefined;
     return (
       <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
@@ -52,8 +54,12 @@ async function SellerGate({ searchParams }: Pick<PageProps<"/sell">, "searchPara
       </section>
     );
   }
+  // Arriving from the "continue on your phone" QR code: pick up the listing read on the computer.
+  const draft = typeof draftParam === "string" ? store.drafts.get(draftParam) : undefined;
+  const initialDraft = draft && draft.sellerId === sellerId(seller) ? { id: draft.id, listing: draft.listing } : null;
   return (
     <SellerFlow
+      initialDraft={initialDraft}
       seller={{
         name: seller.name ?? "PayPal user",
         email: seller.email ?? "",
