@@ -286,7 +286,7 @@ export default function LiveChallenge({
           Switch camera
         </button>
         {phase.name === "moment2" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0070e0]/30 text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/30 text-white">
             <span className="text-8xl drop-shadow-lg">{GESTURE_INFO[phase.gestureB].emoji}</span>
             <span className="mt-2 rounded-full bg-black/60 px-4 py-2 text-xl font-semibold">
               Now: {GESTURE_INFO[phase.gestureB].label}! {(Math.max(0, Math.min(phase.windowMs, phase.deadline - now)) / 1000).toFixed(1)} s
@@ -325,7 +325,7 @@ export default function LiveChallenge({
           <button
             onClick={startChallenge}
             disabled={evalCapture && !evalLabel}
-            className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white disabled:opacity-40"
+            className="w-fit rounded-full bg-ink px-6 py-3 font-medium text-white disabled:opacity-40"
           >
             Show my code
           </button>

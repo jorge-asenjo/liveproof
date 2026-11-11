@@ -11,13 +11,13 @@ export const metadata: Metadata = { title: "Sell with live proof · LiveProof" }
 
 export default function SellPage({ searchParams }: PageProps<"/sell">) {
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+    <main className="min-h-screen bg-desk text-graphite">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-8">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-lg font-semibold tracking-tight">
             LiveProof
           </Link>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">PayPal sandbox</span>
+          <span className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-neutral-600 ring-1 ring-line">PayPal sandbox</span>
         </header>
         <Suspense fallback={<p className="text-neutral-500">Loading…</p>}>
           <SellerGate searchParams={searchParams} />

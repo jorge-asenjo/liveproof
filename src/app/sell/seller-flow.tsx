@@ -60,7 +60,7 @@ export default function SellerFlow({
   return (
     <div className="flex flex-col gap-6">
       <section className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-200">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0070e0] font-semibold text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink font-semibold text-white">
           {seller.name.slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
@@ -85,7 +85,7 @@ export default function SellerFlow({
             onChange={(e) => setText(e.target.value)}
             rows={6}
             placeholder={EXAMPLE}
-            className="w-full rounded-xl border border-neutral-300 p-3 font-mono text-sm outline-none focus:border-[#0070e0]"
+            className="w-full rounded-xl border border-neutral-300 p-3 font-mono text-sm outline-none focus:border-ink"
           />
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -118,8 +118,8 @@ export default function SellerFlow({
               onClick={() => setLive(true)}
               className={
                 device === "computer"
-                  ? "rounded-full px-6 py-3 font-medium text-[#0070e0] ring-1 ring-[#0070e0]"
-                  : "rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white"
+                  ? "rounded-full px-6 py-3 font-medium text-ink ring-1 ring-ink"
+                  : "rounded-full bg-ink px-6 py-3 font-medium text-white"
               }
             >
               {device === "computer" ? "Use this computer's camera" : "Start live proof"}
@@ -242,7 +242,7 @@ function PhoneHandoff({ draftId }: { draftId: string }) {
   }, [draftId, round]);
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-[#0070e0]/5 p-4 ring-1 ring-[#0070e0]/30 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4 rounded-xl bg-ink-soft p-4 ring-1 ring-ink/30 sm:flex-row sm:items-center">
       <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg bg-white p-2 ring-1 ring-neutral-200">
         {qr ? (
           // eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL made by our own API
@@ -311,7 +311,7 @@ function BuyerLink({ challengeId, listing }: { challengeId: string; listing: Lis
           >
             {copied ? "Copied" : "Copy link"}
           </button>
-          <a href={url} target="_blank" rel="noreferrer" className="rounded-full px-5 py-2 text-sm font-medium text-[#0070e0] ring-1 ring-[#0070e0]">
+          <a href={url} target="_blank" rel="noreferrer" className="rounded-full px-5 py-2 text-sm font-medium text-ink ring-1 ring-ink">
             Open buyer page
           </a>
         </div>
@@ -330,14 +330,14 @@ function BuyerLink({ challengeId, listing }: { challengeId: string; listing: Lis
           onChange={(e) => setAmount(e.target.value.replace(",", "."))}
           inputMode="decimal"
           placeholder="450"
-          className="w-32 rounded-lg border border-neutral-300 bg-white px-3 py-2 outline-none focus:border-[#0070e0]"
+          className="w-32 rounded-lg border border-neutral-300 bg-white px-3 py-2 outline-none focus:border-ink"
         />
         <span className="text-neutral-600">{currency}</span>
       </label>
       <button
         onClick={create}
         disabled={busy || !amount}
-        className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white disabled:opacity-40"
+        className="w-fit rounded-full bg-ink px-6 py-3 font-medium text-white disabled:opacity-40"
       >
         {busy ? "Creating…" : "Create buyer link"}
       </button>

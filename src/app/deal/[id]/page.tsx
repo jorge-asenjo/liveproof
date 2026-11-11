@@ -12,13 +12,13 @@ export const metadata: Metadata = {
 
 export default function DealPage({ params, searchParams }: PageProps<"/deal/[id]">) {
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+    <main className="min-h-screen bg-desk text-graphite">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 py-8">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-lg font-semibold tracking-tight">
             LiveProof
           </Link>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">PayPal sandbox</span>
+          <span className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-neutral-600 ring-1 ring-line">PayPal sandbox</span>
         </header>
         <Suspense fallback={<p className="text-neutral-500">Loading the deal…</p>}>
           <DealView params={params} searchParams={searchParams} />
@@ -52,8 +52,18 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
       )}
 
       <ItemCard deal={deal} />
-      {deal.payment ? <PaidCard deal={deal} /> : <PayCard deal={deal} />}
-      <ProofCard deal={deal} now={now} />
+      {/* Before paying, the buyer sees the proof first; once paid, the payment comes first. */}
+      {deal.payment ? (
+        <>
+          <PaidCard deal={deal} />
+          <ProofCard deal={deal} now={now} />
+        </>
+      ) : (
+        <>
+          <ProofCard deal={deal} now={now} />
+          <PayCard deal={deal} />
+        </>
+      )}
     </>
   );
 }
@@ -96,7 +106,7 @@ function SellerAccount({ deal }: { deal: Deal }) {
   const s = deal.seller;
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0070e0] text-lg font-semibold text-white">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-lg font-semibold text-white">
         {s.name.slice(0, 1).toUpperCase()}
       </div>
       <div className="min-w-0 flex-1">

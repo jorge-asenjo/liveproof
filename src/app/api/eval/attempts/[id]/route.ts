@@ -1,7 +1,9 @@
+import { connection } from "next/server";
 import { exportAuthorized, getAttempt } from "@/lib/attempts";
 
 // One captured eval attempt with its frames. Token-protected, like the list.
 export async function GET(request: Request, ctx: RouteContext<"/api/eval/attempts/[id]">) {
+  await connection(); // per request: never prerendered
   if (!exportAuthorized(request)) return new Response("Not found", { status: 404 });
   const { id } = await ctx.params;
   const attempt = await getAttempt(id);
