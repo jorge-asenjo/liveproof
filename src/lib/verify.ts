@@ -6,7 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { claudeExtras, VERIFY_MODEL } from "./claude";
+import { claudeExtras, VERIFY_EFFORT, VERIFY_MODEL } from "./claude";
 import { GESTURE_INFO, GESTURES, type Gesture } from "./gestures";
 import type { Listing } from "./listing";
 
@@ -23,6 +23,9 @@ const Moment = z.object({
 export const ObservationSchema = z.object({
   moment1: Moment,
   moment2: Moment,
+  listed_item_expected_look: z
+    .string()
+    .describe("From your own knowledge, what the listed item looks like (shape, colours, distinctive features), under 20 words. 'unknown' if you do not know the model."),
   item_description: z.string().describe("What the item in frame looks like, under 20 words."),
   item_matches_listing: z.enum(["yes", "no", "unclear"]),
   proof_detail_visible: z.boolean(),
@@ -40,7 +43,7 @@ Report literally what is visible. You do not decide whether the proof passes: se
 - handwritten_code: only characters written by hand on paper (A-Z, 0-9), uppercase, no spaces. If frames disagree, use the clearest one. Do not guess illegible characters: use null.
 - code_medium: where the code appears. "screen" if it is shown on a phone, monitor or TV.
 - gesture: the hand gesture most clearly shown in that moment. Open_Palm = all fingers extended, palm open. Thumb_Up = thumb up, other fingers folded. Victory = index and middle fingers up in a V. Closed_Fist = fist. Pointing_Up = only the index finger up. "none" if no hand gesture, "other" for anything else.
-- item_matches_listing: "yes" if the item is clearly the listed one, "no" if it is clearly a different kind of item or model, "unclear" if it is plausible but the model cannot be confirmed.
+- listed_item_expected_look, then item_description, then item_matches_listing: first recall what the listed model looks like, then describe what is in frame, then compare. "yes" if the item is clearly the listed one; "no" if it is a different kind of item, or the same kind but visibly a different model (shape, layout, colours, distinctive features differ from the listed model); "unclear" only if it is plausible but the exact model cannot be confirmed from these frames.
 - item_is_physical: "on_screen" if the item appears on a phone, monitor or TV screen (bezels, pixel grid, moire, screen glare); "printed_photo" if it is a flat printed picture.
 - same_scene_both_moments: true only if the location, item, paper and person look the same in both moments.
 - tampering_signs: concrete visual reasons for suspicion only (e.g. "screen bezel around the item", "warped letters typical of AI image generation", "hand lighting inconsistent with the item"). Empty if none.
@@ -79,8 +82,10 @@ export async function observe(input: {
   moment1: string[];
   moment2: string[];
   model?: string;
+  effort?: "low" | "medium" | "high";
 }): Promise<ObserveResult> {
   const model = input.model ?? VERIFY_MODEL;
+  const effort = input.effort ?? VERIFY_EFFORT;
   const client = new Anthropic();
   const started = Date.now();
   const response = await client.beta.messages.parse({
@@ -102,7 +107,7 @@ export async function observe(input: {
         ],
       },
     ],
-    output_config: { effort: "low", format: betaZodOutputFormat(ObservationSchema) },
+    output_config: { effort, format: betaZodOutputFormat(ObservationSchema) },
     ...claudeExtras(model),
   });
   const latencyMs = Date.now() - started;
@@ -156,7 +161,7 @@ export function decide(facts: ChallengeFacts, obs: Observation): Decision {
     },
     {
       id: "item",
-      label: "Item matches the listing",
+      label: obs.item_matches_listing === "yes" ? "Item matches the listing" : "Same kind of item as the listing (exact model not confirmed on camera)",
       ok: (m1.item_visible || m2.item_visible) && obs.item_matches_listing !== "no",
       hard: true,
       detail: !(m1.item_visible || m2.item_visible)

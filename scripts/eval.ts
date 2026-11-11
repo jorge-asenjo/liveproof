@@ -2,6 +2,7 @@
 // proofs pass and how many attacks are rejected.
 //
 //   npx tsx scripts/eval.ts [casesDir] [--model claude-haiku-5-5] [--concurrency 3]
+//                           [--filter text] [--out results.json]
 //
 // Each case folder (written by the app when ATTEMPTS_DIR is set) has meta.json and frames.
 // Set "label" to "genuine" or "attack" (and "attack" to a short type) before running;
@@ -10,7 +11,7 @@
 // Replays (an old proof sent for a new code) are not in this set on purpose: Claude never
 // sees the expected code, so a replay can only pass if two random codes collide
 // (1 in 23^5 = 6.4 million). This eval measures the attacks that depend on the model.
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GESTURE_B_WINDOW_MS } from "../src/lib/challenge";
 import type { Gesture } from "../src/lib/gestures";
@@ -37,6 +38,9 @@ const flag = (name: string) => {
 };
 const model = flag("--model") ?? process.env.VERIFY_MODEL ?? "claude-opus-5-5";
 const concurrency = Number(flag("--concurrency") ?? 3);
+const filter = flag("--filter");
+const out = flag("--out");
+const effort = flag("--effort") as "low" | "medium" | "high" | undefined;
 const dir = args[0] ?? process.env.ATTEMPTS_DIR ?? "../eval/attempts";
 
 async function toDataUrl(file: string) {
@@ -53,6 +57,7 @@ type Row = {
   latencyMs: number;
   costUsd: number;
   error?: string;
+  observation?: unknown;
 };
 
 async function runCase(name: string): Promise<Row | null> {
@@ -63,7 +68,7 @@ async function runCase(name: string): Promise<Row | null> {
   try {
     const moment1 = await Promise.all(meta.files.m1.map((f) => toDataUrl(path.join(caseDir, f))));
     const moment2 = await Promise.all(meta.files.m2.map((f) => toDataUrl(path.join(caseDir, f))));
-    const result = await observe({ listing: meta.listing, moment1, moment2, model });
+    const result = await observe({ listing: meta.listing, moment1, moment2, model, effort });
     const decision = decide(
       {
         code: meta.code,
@@ -82,6 +87,7 @@ async function runCase(name: string): Promise<Row | null> {
       failed: failed.join(", "),
       latencyMs: result.latencyMs,
       costUsd: result.costUsd ?? 0,
+      observation: result.observation,
     };
   } catch (err) {
     return { ...base, passed: false, correct: false, failed: "", latencyMs: 0, costUsd: 0, error: String(err) };
@@ -89,7 +95,7 @@ async function runCase(name: string): Promise<Row | null> {
 }
 
 async function main() {
-  const names = (await readdir(dir, { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  const names = (await readdir(dir, { withFileTypes: true })).filter((d) => d.isDirectory() && (!filter || d.name.includes(filter))).map((d) => d.name).sort();
   const rows: Row[] = [];
   let next = 0;
   await Promise.all(
@@ -118,6 +124,10 @@ async function main() {
   console.log(`Cost: $${rows.reduce((s, r) => s + r.costUsd, 0).toFixed(3)} total, $${(rows.reduce((s, r) => s + r.costUsd, 0) / Math.max(1, rows.length)).toFixed(4)} per proof`);
   const errors = rows.filter((r) => r.error).length;
   if (errors) console.log(`Errors: ${errors}`);
+  if (out) {
+    await writeFile(out, JSON.stringify({ model, ranAt: new Date().toISOString(), rows: rows.sort((a, b) => a.name.localeCompare(b.name)) }, null, 2));
+    console.log(`Wrote ${out}`);
+  }
 }
 
 main().catch((err) => {

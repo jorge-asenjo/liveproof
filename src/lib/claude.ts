@@ -1,6 +1,8 @@
 // Shared Claude settings. Models can be overridden with env vars to compare them in the eval.
 export const VERIFY_MODEL = process.env.VERIFY_MODEL ?? "claude-opus-5-5";
 export const LISTING_MODEL = process.env.LISTING_MODEL ?? "claude-opus-5-5";
+// Thinking effort for the vision step: more effort is steadier on hard cases, but slower.
+export const VERIFY_EFFORT = (["low", "medium", "high"] as const).find((e) => e === process.env.VERIFY_EFFORT) ?? "low";
 
 // Server-side refusal fallback (beta) for models that support it. Claude Haiku has
 // no server-side fallback, so nothing is added for it.
