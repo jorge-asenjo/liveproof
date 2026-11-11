@@ -5,6 +5,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { CHALLENGE_GESTURES, type Gesture } from "./gestures";
 import type { Listing } from "./listing";
 import type { Seller } from "./session";
+import type { EvalLabel } from "./eval-labels";
 import type { Decision, Observation } from "./verify";
 
 // No look-alike characters (0/O, 1/I/L, 2/Z, 5/S, 6/G, 8/B, Q).
@@ -43,6 +44,7 @@ export type Challenge = {
   verify?: { model: string; latencyMs: number; costUsd: number | null };
   error?: string;
   dealId?: string;
+  evalLabel?: EvalLabel; // only when eval capture is on for this seller
 };
 
 type Store = { drafts: Map<string, Draft>; challenges: Map<string, Challenge> };
@@ -74,7 +76,7 @@ function pruneStore(now: number) {
   for (const [id, c] of store.challenges) if (now - c.createdAt > KEEP_MS) store.challenges.delete(id);
 }
 
-export function createChallenge(draft: Draft, seller: Seller): Challenge {
+export function createChallenge(draft: Draft, seller: Seller, evalLabel?: EvalLabel): Challenge {
   pruneStore(Date.now());
   const challenge: Challenge = {
     id: newId(),
@@ -85,6 +87,7 @@ export function createChallenge(draft: Draft, seller: Seller): Challenge {
     gestureA: randomGesture(),
     createdAt: Date.now(),
     status: "open",
+    evalLabel,
   };
   store.challenges.set(challenge.id, challenge);
   return challenge;

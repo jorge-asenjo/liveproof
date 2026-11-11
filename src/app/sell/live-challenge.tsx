@@ -4,12 +4,16 @@
 // pick the moment to capture frames; the server and Claude make the actual decision.
 import type { GestureRecognizer } from "@mediapipe/tasks-vision";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { EVAL_LABELS } from "@/lib/eval-labels";
 import { GESTURE_INFO, isGesture, type Gesture } from "@/lib/gestures";
 
 const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm";
 const GESTURE_MODEL =
   "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
 const MIN_SCORE = 0.6;
+// The gesture we are waiting for may score lower (a hand at an angle, half in frame): the
+// browser only picks the moment to capture, Claude and the rules check the frames anyway.
+const MIN_SCORE_TARGET = 0.45;
 const HOLD_MS_MOMENT1 = 700;
 const HOLD_MS_MOMENT2 = 300;
 const FRAMES_PER_MOMENT = 2;
@@ -40,10 +44,16 @@ export default function LiveChallenge({
   draftId,
   computer,
   onResult,
+  evalCapture = false,
+  evalLabel = "",
+  onEvalLabel,
 }: {
   draftId: string;
   computer: boolean;
   onResult: (r: VerifyResult) => void;
+  evalCapture?: boolean;
+  evalLabel?: string;
+  onEvalLabel?: (value: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const phaseRef = useRef<Phase>({ name: "starting" });
@@ -141,11 +151,12 @@ export default function LiveChallenge({
         let bestScore = MIN_SCORE;
         for (const hand of result.gestures) {
           const top = hand[0];
-          if (!top || top.score < MIN_SCORE || !isGesture(top.categoryName)) continue;
-          if (top.categoryName === target) {
+          if (!top || !isGesture(top.categoryName)) continue;
+          if (top.categoryName === target && top.score >= MIN_SCORE_TARGET) {
             best = target;
             break;
           }
+          if (top.score < MIN_SCORE) continue;
           if (top.score >= bestScore) {
             best = top.categoryName;
             bestScore = top.score;
@@ -193,14 +204,14 @@ export default function LiveChallenge({
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      const body = await postJson("/api/challenge", { draftId });
+      const body = await postJson("/api/challenge", { draftId, evalLabel: evalCapture ? evalLabel : undefined });
       go({ name: "moment1", challengeId: body.id, code: body.code, gestureA: body.gestureA, proofDetail: body.proofDetail, since: Date.now() });
     } catch (err) {
       fail(err);
     } finally {
       busyRef.current = false;
     }
-  }, [draftId, go, fail]);
+  }, [draftId, evalCapture, evalLabel, go, fail]);
 
   const submit1 = useCallback(async () => {
     const p = phaseRef.current;
@@ -294,7 +305,28 @@ export default function LiveChallenge({
               : "Get your pen and paper ready and point the back camera at the item on the table."}{" "}
             The code appears when you press the button and is valid for 3 minutes.
           </p>
-          <button onClick={startChallenge} className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white">
+          {evalCapture && (
+            <label className="flex flex-col gap-1 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+              <span className="font-medium">Eval capture is on for this account. What is this attempt?</span>
+              <select
+                value={evalLabel}
+                onChange={(e) => onEvalLabel?.(e.target.value)}
+                className="rounded-lg border border-amber-300 bg-white px-2 py-2 text-neutral-900"
+              >
+                <option value="">Choose…</option>
+                {EVAL_LABELS.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            onClick={startChallenge}
+            disabled={evalCapture && !evalLabel}
+            className="w-fit rounded-full bg-[#0070e0] px-6 py-3 font-medium text-white disabled:opacity-40"
+          >
             Show my code
           </button>
         </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { evalCaptureEnabled } from "@/lib/attempts";
 import { sellerId, store } from "@/lib/challenge";
 import { getSeller } from "@/lib/session";
 import SellerFlow from "./seller-flow";
@@ -60,6 +61,7 @@ async function SellerGate({ searchParams }: Pick<PageProps<"/sell">, "searchPara
   return (
     <SellerFlow
       initialDraft={initialDraft}
+      evalCapture={evalCaptureEnabled(seller)}
       seller={{
         name: seller.name ?? "PayPal user",
         email: seller.email ?? "",

@@ -23,9 +23,11 @@ type Draft = { id: string; listing: Listing };
 export default function SellerFlow({
   seller,
   initialDraft,
+  evalCapture = false,
 }: {
   seller: { name: string; email: string; verified: boolean };
   initialDraft: Draft | null;
+  evalCapture?: boolean;
 }) {
   const device = useDevice();
   const [text, setText] = useState("");
@@ -34,6 +36,7 @@ export default function SellerFlow({
   const [draft, setDraft] = useState<Draft | null>(initialDraft);
   const [live, setLive] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
+  const [evalLabel, setEvalLabel] = useState("");
 
   async function readListing() {
     setBusy(true);
@@ -128,7 +131,16 @@ export default function SellerFlow({
         </section>
       )}
 
-      {draft && live && !result && <LiveChallenge draftId={draft.id} computer={device === "computer"} onResult={setResult} />}
+      {draft && live && !result && (
+        <LiveChallenge
+          draftId={draft.id}
+          computer={device === "computer"}
+          onResult={setResult}
+          evalCapture={evalCapture}
+          evalLabel={evalLabel}
+          onEvalLabel={setEvalLabel}
+        />
+      )}
 
       {result && (
         <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">

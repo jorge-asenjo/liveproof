@@ -1,4 +1,7 @@
+import { evalCaptureEnabled } from "@/lib/attempts";
+import { BudgetError, spendClaudeCall } from "@/lib/budget";
 import { CODE_LENGTH, createChallenge, sellerId, store, WRITE_WINDOW_MS } from "@/lib/challenge";
+import { parseEvalLabel } from "@/lib/eval-labels";
 import { getSeller } from "@/lib/session";
 
 // Starts a live challenge for a parsed listing. The code is only revealed now, with the
@@ -12,7 +15,22 @@ export async function POST(request: Request) {
   if (!draft || draft.sellerId !== sellerId(seller)) {
     return Response.json({ error: "Listing not found. Paste it again." }, { status: 404 });
   }
-  const challenge = createChallenge(draft, seller);
+
+  // The verification at the end of the challenge is one Claude call: count it now, before
+  // the seller writes the code, so nobody does the whole proof only to hit the daily limit.
+  try {
+    await spendClaudeCall();
+  } catch (err) {
+    if (err instanceof BudgetError) return Response.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
+
+  let evalLabel;
+  if (evalCaptureEnabled(seller)) {
+    evalLabel = parseEvalLabel(body?.evalLabel);
+    if (!evalLabel) return Response.json({ error: "Pick an eval label first" }, { status: 400 });
+  }
+  const challenge = createChallenge(draft, seller, evalLabel ?? undefined);
   return Response.json({
     id: challenge.id,
     code: challenge.code,

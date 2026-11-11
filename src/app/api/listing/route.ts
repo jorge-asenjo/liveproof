@@ -1,3 +1,4 @@
+import { BudgetError, spendClaudeCall } from "@/lib/budget";
 import { newId, sellerId, store } from "@/lib/challenge";
 import { parseListing } from "@/lib/listing";
 import { getSeller } from "@/lib/session";
@@ -13,11 +14,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Paste the listing text (10 to 5000 characters)" }, { status: 400 });
   }
   try {
+    await spendClaudeCall();
     const listing = await parseListing(text);
     const draft = { id: newId(), sellerId: sellerId(seller), listingText: text, listing, createdAt: Date.now() };
     store.drafts.set(draft.id, draft);
     return Response.json({ draftId: draft.id, listing });
   } catch (err) {
+    if (err instanceof BudgetError) return Response.json({ error: err.message }, { status: err.status });
     console.error("listing parse failed", err);
     return Response.json({ error: "Could not read the listing. Try again." }, { status: 502 });
   }
