@@ -153,8 +153,8 @@ export default function SellerFlow({
           <ul className="flex flex-col gap-2">
             {result.checks.map((c) => (
               <li key={c.id} className="flex items-start gap-3">
-                <span className={c.ok ? "text-emerald-600" : c.hard ? "text-red-600" : "text-amber-600"}>
-                  {c.ok ? "✓" : c.hard ? "✗" : "!"}
+                <span className={c.ok && !c.warn ? "text-emerald-600" : c.ok || !c.hard ? "text-amber-600" : "text-red-600"}>
+                  {c.ok && !c.warn ? "✓" : c.ok || !c.hard ? "!" : "✗"}
                 </span>
                 <span>
                   {c.label}

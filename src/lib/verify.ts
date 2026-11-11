@@ -27,6 +27,10 @@ export const ObservationSchema = z.object({
     .string()
     .describe("From your own knowledge, what the listed item looks like (shape, colours, distinctive features), under 20 words. 'unknown' if you do not know the model."),
   item_description: z.string().describe("What the item in frame looks like, under 20 words."),
+  model_label_text: z
+    .string()
+    .nullable()
+    .describe("Text printed on a model, product or serial label of the item, if one is legible in any frame, copied exactly. null if none is legible."),
   item_matches_listing: z.enum(["yes", "no", "unclear"]),
   proof_detail_visible: z.boolean(),
   item_is_physical: z.enum(["physical_object", "on_screen", "printed_photo", "unclear"]),
@@ -44,6 +48,7 @@ Report literally what is visible. You do not decide whether the proof passes: se
 - code_medium: where the code appears. "screen" if it is shown on a phone, monitor or TV.
 - gesture: the hand gesture most clearly shown in that moment. Open_Palm = all fingers extended, palm open. Thumb_Up = thumb up, other fingers folded. Victory = index and middle fingers up in a V. Closed_Fist = fist. Pointing_Up = only the index finger up. "none" if no hand gesture, "other" for anything else.
 - listed_item_expected_look, then item_description, then item_matches_listing: first recall what the listed model looks like, then describe what is in frame, then compare. "yes" if the item is clearly the listed one; "no" if it is a different kind of item, or the same kind but visibly a different model (shape, layout, colours, distinctive features differ from the listed model); "unclear" only if it is plausible but the exact model cannot be confirmed from these frames.
+- model_label_text: copy the text of a model or product label on the item only if you can actually read it. Do not fill it in from the listing.
 - item_is_physical: "on_screen" if the item appears on a phone, monitor or TV screen (bezels, pixel grid, moire, screen glare); "printed_photo" if it is a flat printed picture.
 - same_scene_both_moments: true only if the location, item, paper and person look the same in both moments.
 - tampering_signs: concrete visual reasons for suspicion only (e.g. "screen bezel around the item", "warped letters typical of AI image generation", "hand lighting inconsistent with the item"). Empty if none.
@@ -120,6 +125,7 @@ export async function observe(input: {
 }
 
 export type ChallengeFacts = {
+  listingModel?: string | null;
   code: string;
   gestureA: Gesture;
   gestureB: Gesture;
@@ -127,7 +133,41 @@ export type ChallengeFacts = {
   gestureBWindowMs: number;
 };
 
-export type Check = { id: string; label: string; ok: boolean; hard: boolean; detail?: string };
+// warn: passed, but the buyer should know something (shown in amber, not green).
+export type Check = { id: string; label: string; ok: boolean; hard: boolean; detail?: string; warn?: boolean };
+
+const alnum = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+function itemCheck(facts: ChallengeFacts, obs: Observation): Check {
+  const visible = obs.moment1.item_visible || obs.moment2.item_visible;
+  if (!visible) return { id: "item", label: "Item matches the listing", ok: false, hard: true, detail: "item not visible" };
+  if (obs.item_matches_listing === "no") {
+    return { id: "item", label: "Item matches the listing", ok: false, hard: true, detail: `saw: ${obs.item_description}` };
+  }
+  const label = obs.model_label_text?.trim();
+  const model = facts.listingModel?.trim();
+  if (label && model && alnum(model).length >= 3) {
+    if (alnum(label).includes(alnum(model))) {
+      return { id: "item", label: `Model label “${label}” matches the listing`, ok: true, hard: true };
+    }
+    return {
+      id: "item",
+      label: `Model label reads “${label}”; the listing says “${model}”`,
+      ok: true,
+      hard: true,
+      warn: true,
+      detail: "check the model with the seller",
+    };
+  }
+  if (obs.item_matches_listing === "yes") return { id: "item", label: "Item matches the listing", ok: true, hard: true };
+  return {
+    id: "item",
+    label: "Same kind of item as the listing; exact model not confirmed on camera",
+    ok: true,
+    hard: true,
+    warn: true,
+  };
+}
 export type Decision = { passed: boolean; checks: Check[] };
 
 export function normalizeCode(value: string | null | undefined) {
@@ -159,19 +199,7 @@ export function decide(facts: ChallengeFacts, obs: Observation): Decision {
       hard: true,
       detail: m2.gesture !== facts.gestureB ? `saw: ${m2.gesture}` : `${seconds} s`,
     },
-    {
-      id: "item",
-      label: obs.item_matches_listing === "yes" ? "Item matches the listing" : "Same kind of item as the listing (exact model not confirmed on camera)",
-      ok: (m1.item_visible || m2.item_visible) && obs.item_matches_listing !== "no",
-      hard: true,
-      detail: !(m1.item_visible || m2.item_visible)
-        ? "item not visible"
-        : obs.item_matches_listing === "no"
-          ? `saw: ${obs.item_description}`
-          : obs.item_matches_listing === "unclear"
-            ? "model not confirmed on camera"
-            : undefined,
-    },
+    itemCheck(facts, obs),
     {
       id: "physical",
       label: "Real object, not a screen or a printed photo",

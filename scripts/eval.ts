@@ -53,6 +53,7 @@ type Row = {
   attack: string;
   correct: boolean;
   passed: boolean;
+  flagged: boolean; // passed, but with an amber warning the buyer sees
   failed: string;
   latencyMs: number;
   costUsd: number;
@@ -71,6 +72,7 @@ async function runCase(name: string): Promise<Row | null> {
     const result = await observe({ listing: meta.listing, moment1, moment2, model, effort });
     const decision = decide(
       {
+        listingModel: (meta.listing as { model?: string | null }).model ?? null,
         code: meta.code,
         gestureA: meta.gestureA,
         gestureB: meta.gestureB,
@@ -83,6 +85,7 @@ async function runCase(name: string): Promise<Row | null> {
     return {
       ...base,
       passed: decision.passed,
+      flagged: decision.passed && decision.checks.some((c) => c.ok && c.warn),
       correct: decision.passed === (meta.label === "genuine"),
       failed: failed.join(", "),
       latencyMs: result.latencyMs,
@@ -90,7 +93,7 @@ async function runCase(name: string): Promise<Row | null> {
       observation: result.observation,
     };
   } catch (err) {
-    return { ...base, passed: false, correct: false, failed: "", latencyMs: 0, costUsd: 0, error: String(err) };
+    return { ...base, passed: false, flagged: false, correct: false, failed: "", latencyMs: 0, costUsd: 0, error: String(err) };
   }
 }
 
@@ -104,7 +107,7 @@ async function main() {
         const row = await runCase(names[next++]);
         if (row) {
           rows.push(row);
-          console.log(`${row.correct ? "ok  " : "MISS"} ${row.label.padEnd(7)} ${row.attack.padEnd(14)} ${row.passed ? "PASS" : "FAIL"} ${(row.latencyMs / 1000).toFixed(1)}s  ${row.name}${row.failed ? `  [${row.failed}]` : ""}${row.error ? `  ERROR ${row.error}` : ""}`);
+          console.log(`${row.correct ? "ok  " : "MISS"} ${row.label.padEnd(7)} ${row.attack.padEnd(14)} ${row.passed ? (row.flagged ? "PASS!" : "PASS ") : "FAIL "} ${(row.latencyMs / 1000).toFixed(1)}s  ${row.name}${row.failed ? `  [${row.failed}]` : ""}${row.error ? `  ERROR ${row.error}` : ""}`);
         }
       }
     }),
@@ -117,9 +120,14 @@ async function main() {
   console.log(`\nModel: ${model}`);
   console.log(`Genuine proofs accepted: ${genuine.filter((r) => r.passed).length}/${genuine.length}`);
   console.log(`Attacks rejected: ${attacks.filter((r) => !r.passed).length}/${attacks.length}`);
+  console.log(`Attacks that passed with an amber warning to the buyer: ${attacks.filter((r) => r.flagged).length}; passed with no warning: ${attacks.filter((r) => r.passed && !r.flagged).length}`);
+  console.log(`Genuine proofs that passed with a warning: ${genuine.filter((r) => r.flagged).length}`);
   const byType = new Map<string, Row[]>();
   for (const r of attacks) byType.set(r.attack || "unspecified", [...(byType.get(r.attack || "unspecified") ?? []), r]);
-  for (const [type, list] of byType) console.log(`  ${type}: ${list.filter((r) => !r.passed).length}/${list.length} rejected`);
+  for (const [type, list] of byType) {
+    const flagged = list.filter((r) => r.flagged).length;
+    console.log(`  ${type}: ${list.filter((r) => !r.passed).length}/${list.length} rejected${flagged ? `, ${flagged} passed with a warning` : ""}`);
+  }
   console.log(`Verification time: median ${(pct(0.5) / 1000).toFixed(1)} s, p90 ${(pct(0.9) / 1000).toFixed(1)} s`);
   console.log(`Cost: $${rows.reduce((s, r) => s + r.costUsd, 0).toFixed(3)} total, $${(rows.reduce((s, r) => s + r.costUsd, 0) / Math.max(1, rows.length)).toFixed(4)} per proof`);
   const errors = rows.filter((r) => r.error).length;

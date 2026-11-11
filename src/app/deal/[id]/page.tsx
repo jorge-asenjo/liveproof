@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { deals, type Deal } from "@/lib/deals";
+import { reconcile } from "@/lib/settle";
 import { GESTURE_INFO } from "@/lib/gestures";
 import ClaudeReport from "../../claude-report";
 
@@ -33,7 +34,9 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
   await connection(); // per-request: payment status and "proved N minutes ago"
   const { id } = await params;
   const { payment: paymentParam } = await searchParams;
-  const deal = await deals.get(id);
+  const stored = await deals.get(id);
+  // A buyer went to PayPal but no payment is recorded: ask PayPal whether it was captured.
+  const deal = stored && !stored.payment && stored.pendingOrderId ? await reconcile(stored) : stored;
   if (!deal) {
     return (
       <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
@@ -47,6 +50,11 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
     <>
       {paymentParam === "cancelled" && !deal.payment && (
         <p className="rounded-xl bg-neutral-100 px-4 py-3 text-sm text-neutral-700">Payment cancelled. Nothing was charged.</p>
+      )}
+      {paymentParam === "processing" && !deal.payment && (
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          PayPal is still processing this payment. Do not pay again: refresh this page in a minute.
+        </p>
       )}
       {paymentParam === "error" && !deal.payment && (
         <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">PayPal could not complete the payment. Nothing was charged. Try again.</p>
@@ -155,10 +163,14 @@ function PaidCard({ deal }: { deal: Deal }) {
   const p = deal.payment!;
   const provedBy = deal.seller.payerId ?? deal.seller.email ?? "unknown";
   const paidTo = p.payee.merchantId ?? p.payee.email ?? "unknown";
+  const completed = p.status === "COMPLETED";
+  const tone = !p.payeeMatches ? "ring-red-500" : completed ? "ring-emerald-500" : "ring-amber-400";
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-2 ring-emerald-500">
+    <section className={`flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-2 ${tone}`}>
       <div>
-        <h2 className="text-2xl font-semibold text-emerald-700">Paid {money(p.value, p.currency)}</h2>
+        <h2 className={`text-2xl font-semibold ${!p.payeeMatches ? "text-red-700" : completed ? "text-emerald-700" : "text-amber-700"}`}>
+          {completed ? `Paid ${money(p.value, p.currency)}` : `Payment of ${money(p.value, p.currency)} pending at PayPal`}
+        </h2>
         <p className="mt-1 text-sm text-neutral-600">
           {p.payer.name ? `By ${p.payer.name}, ` : ""}
           {new Date(p.paidAt).toUTCString()}
@@ -183,7 +195,7 @@ function PaidCard({ deal }: { deal: Deal }) {
       </div>
       <ul className="flex flex-col gap-2 text-sm">
         <li className="flex gap-2">
-          <span className="text-emerald-600">✓</span>
+          <span className={completed ? "text-emerald-600" : "text-amber-600"}>{completed ? "✓" : "!"}</span>
           <span>
             Capture {p.status.toLowerCase()}
             <span className="text-neutral-500 tabular-nums"> · {p.captureId}</span>
@@ -231,7 +243,9 @@ function ProofCard({ deal, now }: { deal: Deal; now: number }) {
       <ul className="flex flex-col gap-1.5 text-sm">
         {pr.checks.map((c) => (
           <li key={c.id} className="flex items-start gap-2">
-            <span className={c.ok ? "text-emerald-600" : c.hard ? "text-red-600" : "text-amber-600"}>{c.ok ? "✓" : c.hard ? "✗" : "!"}</span>
+            <span className={c.ok && !c.warn ? "text-emerald-600" : c.ok || !c.hard ? "text-amber-600" : "text-red-600"}>
+              {c.ok && !c.warn ? "✓" : c.ok || !c.hard ? "!" : "✗"}
+            </span>
             <span>{c.label}</span>
           </li>
         ))}

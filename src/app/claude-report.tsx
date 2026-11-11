@@ -36,6 +36,7 @@ export default function ClaudeReport({ observation, model }: { observation: Obse
     ["Item on camera", `${o.item_description.replace(/[.\s]+$/, "")}. Looks like ${PHYSICAL[o.item_is_physical]}.`],
     ["Compared with the listing", o.item_matches_listing === "yes" ? "matches" : o.item_matches_listing === "no" ? "does not match" : "same kind of item, exact model not confirmed"],
   ];
+  if (o.model_label_text) rows.splice(3, 0, ["Model label", `“${o.model_label_text}”`]);
   if (o.tampering_signs.length) rows.push(["Warnings", o.tampering_signs.join("; ")]);
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-ink-soft p-4">

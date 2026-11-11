@@ -26,7 +26,7 @@ const MANUAL_CAPTURE_AFTER_MS = 8000;
 export type VerifyResult = {
   challengeId: string;
   passed: boolean;
-  checks: { id: string; label: string; ok: boolean; hard: boolean; detail?: string }[];
+  checks: { id: string; label: string; ok: boolean; hard: boolean; detail?: string; warn?: boolean }[];
   item: string;
   tamperingSigns: string[];
   verifyMs: number;

@@ -107,6 +107,8 @@ export async function createOrder(order: NewOrder): Promise<{ id: string; approv
         {
           reference_id: order.dealId,
           custom_id: order.dealId,
+          // One completed payment per deal: PayPal refuses a second payment with the same invoice id.
+          invoice_id: `liveproof-${order.dealId}`,
           description: order.description.slice(0, 127),
           amount: { currency_code: order.amount.currency, value: order.amount.value },
           payee: order.payee,
@@ -134,9 +136,11 @@ export type CapturedOrder = {
   orderId: string;
   status: string;
   customId: string | null;
+  amount: { value: string | null; currency: string | null };
   payee: { merchantId: string | null; email: string | null };
   payer: { name: string | null; email: string | null };
   capture: { id: string; status: string; value: string; currency: string; sellerProtection: string | null } | null;
+  approveUrl: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- PayPal order JSON
@@ -148,6 +152,7 @@ function toCaptured(body: any): CapturedOrder {
     orderId: body.id,
     status: body.status,
     customId: unit.custom_id ?? null,
+    amount: { value: unit.amount?.value ?? null, currency: unit.amount?.currency_code ?? null },
     payee: { merchantId: unit.payee?.merchant_id ?? null, email: unit.payee?.email_address ?? null },
     payer: { name: payerName || null, email: body.payer?.email_address ?? null },
     capture: capture
@@ -159,6 +164,7 @@ function toCaptured(body: any): CapturedOrder {
           sellerProtection: capture.seller_protection?.status ?? null,
         }
       : null,
+    approveUrl: body.links?.find((l: { rel: string }) => l.rel === "payer-action" || l.rel === "approve")?.href ?? null,
   };
 }
 

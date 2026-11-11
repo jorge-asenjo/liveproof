@@ -34,6 +34,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/challen
     const result = await observe({ listing: challenge.listing, moment1: challenge.moment1!, moment2: challenge.moment2! });
     const decision = decide(
       {
+        listingModel: challenge.listing.model,
         code: challenge.code,
         gestureA: challenge.gestureA,
         gestureB: challenge.gestureB!,

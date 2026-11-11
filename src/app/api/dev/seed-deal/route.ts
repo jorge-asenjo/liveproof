@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         moment2: { handwritten_code: "K7MRA", code_medium: "handwritten_paper", gesture: "Thumb_Up", item_visible: true },
         listed_item_expected_look: "Silver and black dual-fan card with a V-shaped silver frame",
         item_description: "Black and silver graphics card on a wooden desk",
+        model_label_text: null,
         item_matches_listing: "yes",
         proof_detail_visible: false,
         item_is_physical: "physical_object",

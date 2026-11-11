@@ -17,7 +17,7 @@ export type DealSeller = {
 export type Payment = {
   orderId: string;
   captureId: string | null;
-  status: string;
+  status: string; // PayPal's capture status: COMPLETED, or PENDING while PayPal holds it
   value: string;
   currency: string;
   paidAt: number;
@@ -47,13 +47,16 @@ export type Deal = {
   };
   frameCount: number;
   payment: Payment | null;
+  pendingOrderId?: string | null; // the PayPal order the buyer was last sent to approve
 };
 
 interface DealStore {
   create(deal: Deal, frames: string[]): Promise<void>;
   get(id: string): Promise<Deal | null>;
   frame(id: string, index: number): Promise<string | null>;
-  setPayment(id: string, payment: Payment): Promise<void>;
+  // Records the payment only if none is recorded yet. Returns false if one already was.
+  setPayment(id: string, payment: Payment): Promise<boolean>;
+  setPendingOrder(id: string, orderId: string): Promise<void>;
 }
 
 function memoryStore(): DealStore {
@@ -71,7 +74,13 @@ function memoryStore(): DealStore {
     },
     async setPayment(id, payment) {
       const row = map.get(id);
-      if (row) row.deal = { ...row.deal, payment };
+      if (!row || row.deal.payment) return false;
+      row.deal = { ...row.deal, payment };
+      return true;
+    },
+    async setPendingOrder(id, orderId) {
+      const row = map.get(id);
+      if (row) row.deal = { ...row.deal, pendingOrderId: orderId };
     },
   };
 }
@@ -107,7 +116,13 @@ function postgresStore(url: string): DealStore {
     },
     async setPayment(id, payment) {
       await init();
-      await sql`update deals set deal = jsonb_set(deal, '{payment}', ${JSON.stringify(payment)}::jsonb) where id = ${id}`;
+      const rows = await sql`update deals set deal = jsonb_set(deal, '{payment}', ${JSON.stringify(payment)}::jsonb)
+        where id = ${id} and coalesce(deal->'payment', 'null'::jsonb) = 'null'::jsonb returning id`;
+      return rows.length > 0;
+    },
+    async setPendingOrder(id, orderId) {
+      await init();
+      await sql`update deals set deal = jsonb_set(deal, '{pendingOrderId}', ${JSON.stringify(orderId)}::jsonb) where id = ${id}`;
     },
   };
 }

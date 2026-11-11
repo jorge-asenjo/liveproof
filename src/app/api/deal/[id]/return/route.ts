@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
-import { deals, payeeMatches, type Payment } from "@/lib/deals";
-import { baseUrl, captureOrder, PayPalError } from "@/lib/paypal";
+import { deals } from "@/lib/deals";
+import { baseUrl } from "@/lib/paypal";
+import { settle } from "@/lib/settle";
 
-// PayPal sends the buyer back here after they approve. The server captures the payment
-// and checks, from PayPal's own answer, that it went to the account that did the proof.
+// PayPal sends the buyer back here after they approve. The server checks the order (this
+// deal, this amount, the account that did the proof) before capturing it; see lib/settle.ts.
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/deal/[id]/return">) {
   const { id } = await ctx.params;
   const orderId = request.nextUrl.searchParams.get("token");
@@ -14,34 +15,14 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/deal/[id
   if (!orderId) return Response.redirect(`${dealUrl}?payment=error`, 303);
 
   try {
-    const order = await captureOrder(orderId);
-    // The order must be one LiveProof created for this deal.
-    if (order.customId !== deal.id) {
-      console.error("order does not belong to this deal", { deal: deal.id, order: orderId, customId: order.customId });
-      return Response.redirect(`${dealUrl}?payment=error`, 303);
-    }
-    if (order.status !== "COMPLETED" || !order.capture) {
-      console.error("order not completed", { deal: deal.id, order: orderId, status: order.status });
-      return Response.redirect(`${dealUrl}?payment=error`, 303);
-    }
-    const payment: Payment = {
-      orderId: order.orderId,
-      captureId: order.capture.id,
-      status: order.capture.status,
-      value: order.capture.value,
-      currency: order.capture.currency,
-      paidAt: Date.now(),
-      payee: order.payee,
-      payeeMatches: payeeMatches(deal.seller, order.payee),
-      payer: order.payer,
-      sellerProtection: order.capture.sellerProtection,
-    };
-    await deals.setPayment(deal.id, payment);
-    console.log("payment captured", { deal: deal.id, order: orderId, payeeMatches: payment.payeeMatches });
-    return Response.redirect(`${dealUrl}?payment=done`, 303);
+    const result = await settle(deal, orderId);
+    console.log("settle", { deal: deal.id, order: orderId, result });
+    const param = { paid: "done", pending: "pending", not_approved: "cancelled", rejected: "error", failed: "error" }[result];
+    return Response.redirect(`${dealUrl}?payment=${param}`, 303);
   } catch (err) {
-    const detail = err instanceof PayPalError ? JSON.stringify(err.body) : String(err);
-    console.error("capture failed", { deal: deal.id, order: orderId, detail });
-    return Response.redirect(`${dealUrl}?payment=error`, 303);
+    // Something failed after PayPal may have taken the money (e.g. the database): never tell
+    // the buyer "nothing was charged" here. The deal page reconciles with PayPal on load.
+    console.error("settle error", { deal: deal.id, order: orderId, detail: String(err) });
+    return Response.redirect(`${dealUrl}?payment=processing`, 303);
   }
 }
