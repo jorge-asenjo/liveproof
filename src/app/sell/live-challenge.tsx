@@ -5,6 +5,7 @@
 import type { GestureRecognizer } from "@mediapipe/tasks-vision";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EVAL_LABELS } from "@/lib/eval-labels";
+import type { Observation } from "@/lib/verify";
 import { GESTURE_INFO, isGesture, type Gesture } from "@/lib/gestures";
 
 const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm";
@@ -30,6 +31,7 @@ export type VerifyResult = {
   tamperingSigns: string[];
   verifyMs: number;
   model: string;
+  observation?: Observation;
 };
 
 type Phase =

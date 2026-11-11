@@ -52,6 +52,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/challen
       checks: decision.checks,
       item: result.observation.item_description,
       tamperingSigns: result.observation.tampering_signs,
+      observation: result.observation,
       verifyMs: result.latencyMs,
       model: result.model,
     });

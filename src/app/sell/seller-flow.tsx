@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ClaudeReport from "../claude-report";
 import LiveChallenge, { type VerifyResult } from "./live-challenge";
 import { useDevice } from "./use-device";
 
@@ -147,6 +148,8 @@ export default function SellerFlow({
           <h1 className={`text-2xl font-semibold ${result.passed ? "text-emerald-700" : "text-red-700"}`}>
             {result.passed ? "Live proof passed" : "Live proof failed"}
           </h1>
+          {result.observation && <ClaudeReport observation={result.observation} model={result.model} />}
+          <p className="font-medium">The rules{result.observation ? ", checked against that report" : ""}</p>
           <ul className="flex flex-col gap-2">
             {result.checks.map((c) => (
               <li key={c.id} className="flex items-start gap-3">
@@ -161,9 +164,10 @@ export default function SellerFlow({
             ))}
           </ul>
           <p className="text-sm text-neutral-500">
-            Seen on camera: {result.item.replace(/[.\s]+$/, "")}. Checked by {result.model} in {(result.verifyMs / 1000).toFixed(1)} s.
+            {result.observation ? "" : `Seen on camera: ${result.item.replace(/[.\s]+$/, "")}. `}Checked by {result.model} in{" "}
+            {(result.verifyMs / 1000).toFixed(1)} s.
           </p>
-          {result.tamperingSigns.length > 0 && (
+          {!result.observation && result.tamperingSigns.length > 0 && (
             <p className="text-sm text-amber-700">Warnings: {result.tamperingSigns.join("; ")}</p>
           )}
           {result.passed && draft && <BuyerLink challengeId={result.challengeId} listing={draft.listing} />}

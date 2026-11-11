@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { deals, type Deal } from "@/lib/deals";
 import { GESTURE_INFO } from "@/lib/gestures";
+import ClaudeReport from "../../claude-report";
 
 export const metadata: Metadata = {
   title: "Live proof deal · LiveProof",
@@ -152,6 +153,8 @@ function PayCard({ deal }: { deal: Deal }) {
 
 function PaidCard({ deal }: { deal: Deal }) {
   const p = deal.payment!;
+  const provedBy = deal.seller.payerId ?? deal.seller.email ?? "unknown";
+  const paidTo = p.payee.merchantId ?? p.payee.email ?? "unknown";
   return (
     <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-2 ring-emerald-500">
       <div>
@@ -162,21 +165,28 @@ function PaidCard({ deal }: { deal: Deal }) {
         </p>
       </div>
       <SellerAccount deal={deal} />
+      {/* The chain: the account that proved it, and the account PayPal says it paid. */}
+      <div className="flex flex-col gap-2 rounded-xl bg-desk p-4">
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[1fr_auto] sm:items-baseline">
+          <p className="text-sm text-neutral-600">Did the live proof (from Log in with PayPal)</p>
+          <p className="font-semibold tabular-nums">{provedBy}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[1fr_auto] sm:items-baseline">
+          <p className="text-sm text-neutral-600">Was paid (from PayPal&apos;s capture response)</p>
+          <p className="font-semibold tabular-nums">{paidTo}</p>
+        </div>
+        <p className={`text-sm font-semibold ${p.payeeMatches ? "text-ok" : "text-red-700"}`}>
+          {p.payeeMatches
+            ? "✓ Same PayPal account: the money went to the account that did the live proof"
+            : "✗ Warning: PayPal reports a different payee than the account that did the live proof"}
+        </p>
+      </div>
       <ul className="flex flex-col gap-2 text-sm">
-        <li className="flex gap-2">
-          <span className={p.payeeMatches ? "text-emerald-600" : "text-red-600"}>{p.payeeMatches ? "✓" : "✗"}</span>
-          <span>
-            {p.payeeMatches
-              ? "PayPal confirms the money went to the account that did the live proof"
-              : "Warning: PayPal reports a different payee than the account that did the live proof"}
-            <span className="text-neutral-500"> · payee {p.payee.email ?? p.payee.merchantId}</span>
-          </span>
-        </li>
         <li className="flex gap-2">
           <span className="text-emerald-600">✓</span>
           <span>
             Capture {p.status.toLowerCase()}
-            <span className="font-mono text-neutral-500"> · {p.captureId}</span>
+            <span className="text-neutral-500 tabular-nums"> · {p.captureId}</span>
           </span>
         </li>
         {p.sellerProtection && (
@@ -226,6 +236,14 @@ function ProofCard({ deal, now }: { deal: Deal; now: number }) {
           </li>
         ))}
       </ul>
+      {pr.observation && (
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-medium text-ink">What Claude reported about these frames</summary>
+          <div className="mt-3">
+            <ClaudeReport observation={pr.observation} model={pr.model} />
+          </div>
+        </details>
+      )}
       <p className="text-xs text-neutral-500">
         The code and the surprise gesture were random and shown only once the camera was on, so this cannot be an old or prepared
         photo. Seen on camera: {pr.seen.replace(/[.\s]+$/, "")}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the

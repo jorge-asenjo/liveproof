@@ -4,7 +4,7 @@
 // otherwise in memory (local development).
 import { neon } from "@neondatabase/serverless";
 import type { Gesture } from "./gestures";
-import type { Check } from "./verify";
+import type { Check, Observation } from "./verify";
 
 export type DealSeller = {
   payerId: string | null;
@@ -43,6 +43,7 @@ export type Deal = {
     seen: string;
     model: string;
     verifyMs: number;
+    observation?: Observation; // Claude's report; missing on deals made before 12-nov
   };
   frameCount: number;
   payment: Payment | null;

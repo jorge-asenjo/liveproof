@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       gestureBDelayMs: (challenge.moment2At ?? 0) - (challenge.gestureBIssuedAt ?? 0),
       checks: challenge.decision.checks,
       seen: challenge.observation.item_description,
+      observation: challenge.observation,
       model: challenge.verify.model,
       verifyMs: challenge.verify.latencyMs,
     },
