@@ -93,6 +93,8 @@ export type NewOrder = {
   payee: Payee;
   returnUrl: string;
   cancelUrl: string;
+  // The item as PayPal shows it to the buyer: its link and image are the live proof.
+  item?: { name: string; url: string; imageUrl: string; description: string };
 };
 
 // Creates the order with the payee fixed by the server. Returns the order id and the
@@ -110,7 +112,28 @@ export async function createOrder(order: NewOrder): Promise<{ id: string; approv
           // One completed payment per deal: PayPal refuses a second payment with the same invoice id.
           invoice_id: `liveproof-${order.dealId}`,
           description: order.description.slice(0, 127),
-          amount: { currency_code: order.amount.currency, value: order.amount.value },
+          amount: order.item
+            ? {
+                currency_code: order.amount.currency,
+                value: order.amount.value,
+                breakdown: { item_total: { currency_code: order.amount.currency, value: order.amount.value } },
+              }
+            : { currency_code: order.amount.currency, value: order.amount.value },
+          ...(order.item
+            ? {
+                items: [
+                  {
+                    name: order.item.name.slice(0, 127),
+                    quantity: "1",
+                    unit_amount: { currency_code: order.amount.currency, value: order.amount.value },
+                    category: "PHYSICAL_GOODS",
+                    description: order.item.description.slice(0, 127),
+                    url: order.item.url,
+                    image_url: order.item.imageUrl,
+                  },
+                ],
+              }
+            : {}),
           payee: order.payee,
         },
       ],
@@ -214,4 +237,37 @@ export async function identityFromCode(code: string): Promise<PayPalIdentity> {
     verified_account: info.verified_account,
     account_type: info.account_type,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Shipment tracking on the order (Orders v2 /track). The tracked item links to the live
+// proof, so the proof travels with the PayPal transaction.
+
+export const CARRIERS = ["USPS", "UPS", "FEDEX", "DHL", "OTHER"] as const;
+export type Carrier = (typeof CARRIERS)[number];
+
+export async function addTracking(input: {
+  orderId: string;
+  captureId: string;
+  trackingNumber: string;
+  carrier: Carrier;
+  carrierNameOther?: string;
+  item: { name: string; url: string; imageUrl: string };
+}): Promise<{ trackerId: string | null }> {
+  const { ok, status, body } = await ordersCall(`/v2/checkout/orders/${encodeURIComponent(input.orderId)}/track`, {
+    method: "POST",
+    requestId: `track-${input.captureId}-${input.trackingNumber}`.slice(0, 108),
+    body: {
+      capture_id: input.captureId,
+      tracking_number: input.trackingNumber,
+      carrier: input.carrier,
+      ...(input.carrier === "OTHER" && input.carrierNameOther ? { carrier_name_other: input.carrierNameOther } : {}),
+      notify_payer: true,
+      items: [{ name: input.item.name.slice(0, 127), quantity: "1", url: input.item.url, image_url: input.item.imageUrl }],
+    },
+  });
+  if (!ok) throw new PayPalError(`track ${status}`, status, body);
+  const trackers = body.purchase_units?.[0]?.shipping?.trackers ?? [];
+  const mine = trackers.find((tr: { id?: string }) => tr.id?.includes(input.trackingNumber)) ?? trackers[trackers.length - 1];
+  return { trackerId: mine?.id ?? null };
 }

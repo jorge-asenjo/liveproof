@@ -178,7 +178,7 @@ function HowItWorks() {
 const ATTACKS = [
   {
     attack: "An old or copied timestamp photo",
-    defence: "The code did not exist until the camera was on, and it works once.",
+    defence: "The code did not exist until the live proof started, and it works once.",
   },
   {
     attack: "A photo edited to show the new code",

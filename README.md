@@ -45,6 +45,8 @@ Tips: good light helps, and write the code big. If PayPal's sandbox login loops 
 
 ## How it works
 
+![One PayPal account, from proof to payment](docs/one-account-from-proof-to-payment.png)
+
 ```mermaid
 flowchart LR
   S[Seller's browser<br/>camera + MediaPipe] -->|frames, moment 1 and 2| A[LiveProof server<br/>Next.js on Render]
@@ -62,6 +64,8 @@ flowchart LR
 - **Log in with PayPal (Identity API).** Scopes `openid profile email https://uri.paypal.com/services/paypalattributes`. LiveProof reads `payer_id`, `name`, `email` and `verified_account` from `/v1/identity/oauth2/userinfo` and keeps them in a signed, httpOnly session cookie.
 - **Orders v2.** The order is created on the server with `purchase_units[].payee.merchant_id` set to the seller's `payer_id` (with the verified email as a fallback), `intent: CAPTURE` and the deal id in `custom_id`. The request from the buyer carries no payee at all, so a copied or edited link cannot redirect the money.
 - **Check, then capture.** When the buyer returns, the server reads the order and checks `custom_id`, the amount, the currency and the payee against the deal. Only then it captures (idempotent with `PayPal-Request-Id`) and branches on the capture status: `COMPLETED` is shown as paid, `PENDING` as pending, and a payee mismatch in red, never as paid. The buyer page shows the capture id, the payee and PayPal's seller protection status.
+- **The proof travels with the PayPal transaction.** The order's item links to the live proof and uses its first frame as the item image, so the buyer sees the proof on PayPal's own checkout too.
+- **Shipment tracking (Orders v2 `/track`).** After the payment, the seller (logged in with the same PayPal account) adds the carrier and tracking number on the deal page. LiveProof registers it on the PayPal order with `notify_payer` and the item linked to the proof; shipping with tracking to the address on the transaction is what PayPal Seller Protection asks for.
 - **One payment per deal.** The order carries `invoice_id`, the payment is recorded with a conditional update, and pressing Pay again reuses or settles the order the buyer already has. If something fails after PayPal may have taken the money, the buyer is told not to pay again, and the deal page reconciles with PayPal (`GET` order) on its next load. There are no webhooks yet.
 - Code: [`src/lib/paypal.ts`](src/lib/paypal.ts), [`src/lib/settle.ts`](src/lib/settle.ts), [`src/app/api/deal/[id]/pay/route.ts`](src/app/api/deal/%5Bid%5D/pay/route.ts), [`src/app/api/deal/[id]/return/route.ts`](src/app/api/deal/%5Bid%5D/return/route.ts).
 

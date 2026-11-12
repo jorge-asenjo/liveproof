@@ -3,6 +3,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { deals, type Deal } from "@/lib/deals";
+import { CARRIERS } from "@/lib/paypal";
+import { getSeller } from "@/lib/session";
 import { reconcile } from "@/lib/settle";
 import { GESTURE_INFO } from "@/lib/gestures";
 import ClaudeReport from "../../claude-report";
@@ -33,7 +35,7 @@ export default function DealPage({ params, searchParams }: PageProps<"/deal/[id]
 async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, "params" | "searchParams">) {
   await connection(); // per-request: payment status and "proved N minutes ago"
   const { id } = await params;
-  const { payment: paymentParam } = await searchParams;
+  const { payment: paymentParam, tracking: trackingParam } = await searchParams;
   const stored = await deals.get(id);
   // A buyer went to PayPal but no payment is recorded: ask PayPal whether it was captured.
   const deal = stored && !stored.payment && stored.pendingOrderId ? await reconcile(stored) : stored;
@@ -46,8 +48,15 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
     );
   }
   const now = requestTime();
+  const viewer = await getSeller();
+  const viewerIsSeller = !!viewer && !!deal.seller.payerId && viewer.payer_id === deal.seller.payerId;
   return (
     <>
+      {typeof trackingParam === "string" && TRACKING_NOTICES[trackingParam] && (
+        <p className={`rounded-xl px-4 py-3 text-sm ${trackingParam === "added" ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
+          {TRACKING_NOTICES[trackingParam]}
+        </p>
+      )}
       {paymentParam === "cancelled" && !deal.payment && (
         <p className="rounded-xl bg-neutral-100 px-4 py-3 text-sm text-neutral-700">Payment cancelled. Nothing was charged.</p>
       )}
@@ -65,6 +74,7 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
       {deal.payment ? (
         <>
           <PaidCard deal={deal} />
+          <ShipmentCard deal={deal} viewerIsSeller={viewerIsSeller} />
           <ProofCard deal={deal} now={now} />
         </>
       ) : (
@@ -74,6 +84,67 @@ async function DealView({ params, searchParams }: Pick<PageProps<"/deal/[id]">, 
         </>
       )}
     </>
+  );
+}
+
+const TRACKING_NOTICES: Record<string, string> = {
+  added: "Tracking added to the PayPal transaction. PayPal emails it to the buyer.",
+  invalid: "Check the tracking number and the carrier, then try again.",
+  error: "PayPal did not accept the tracking. Check the number and try again.",
+  "not-seller": "Only the PayPal account that did the live proof can add tracking. Log in with PayPal as the seller.",
+  "not-paid": "Tracking can be added once the payment is completed.",
+};
+
+function ShipmentCard({ deal, viewerIsSeller }: { deal: Deal; viewerIsSeller: boolean }) {
+  const s = deal.shipment;
+  if (s) {
+    return (
+      <section className="flex flex-col gap-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+        <h2 className="text-lg font-semibold">Shipped</h2>
+        <p>
+          {s.carrier}, tracking <span className="font-medium tabular-nums">{s.trackingNumber}</span>
+        </p>
+        <p className="text-sm text-neutral-600">
+          Added to the PayPal transaction on {new Date(s.addedAt).toUTCString()}, with the item linked to this live proof. PayPal emails the
+          tracking to the buyer.
+        </p>
+      </section>
+    );
+  }
+  if (!viewerIsSeller || deal.payment?.status !== "COMPLETED") return null;
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+      <div>
+        <h2 className="text-lg font-semibold">Add the shipment tracking</h2>
+        <p className="text-sm text-neutral-600">
+          LiveProof adds it to the PayPal transaction, with the item linked to your live proof. Shipping to the address on the PayPal
+          transaction, with tracking, is what PayPal Seller Protection asks for.
+        </p>
+      </div>
+      <form action={`/api/deal/${deal.id}/tracking`} method="post" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-neutral-600">Carrier</span>
+          <select name="carrier" defaultValue="USPS" className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
+            {CARRIERS.map((c) => (
+              <option key={c} value={c}>
+                {c === "OTHER" ? "Other" : c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-neutral-600">Other carrier name</span>
+          <input name="carrier_other" placeholder="Only for Other" className="rounded-lg border border-neutral-300 px-3 py-2" />
+        </label>
+        <label className="flex flex-1 flex-col gap-1 text-sm">
+          <span className="text-neutral-600">Tracking number</span>
+          <input name="tracking_number" required minLength={6} maxLength={40} className="rounded-lg border border-neutral-300 px-3 py-2" />
+        </label>
+        <button type="submit" className="rounded-full bg-ink px-6 py-2.5 font-medium text-white">
+          Add tracking to PayPal
+        </button>
+      </form>
+    </section>
   );
 }
 

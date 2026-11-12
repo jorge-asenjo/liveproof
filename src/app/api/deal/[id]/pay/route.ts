@@ -42,6 +42,14 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/deal/[
         payee,
         returnUrl: `${baseUrl()}/api/deal/${encodeURIComponent(id)}/return`,
         cancelUrl: `${dealUrl}?payment=cancelled`,
+        // PayPal shows this item to the buyer: its link and image are the live proof
+        // (only on https: PayPal does not take localhost links).
+        item: baseUrl().startsWith("https://") ? {
+          name: deal.item.title,
+          url: dealUrl,
+          imageUrl: `${baseUrl()}/api/deal/${encodeURIComponent(id)}/proof.jpg`,
+          description: `Proved live on camera on ${new Date(deal.proof.provedAt).toUTCString().slice(5, 16)} (LiveProof)`,
+        } : undefined,
       });
       await deals.setPendingOrder(deal.id, order.id);
       console.log("order created", { deal: deal.id, order: order.id, payee: Object.keys(payee)[0] });

@@ -49,6 +49,14 @@ export type Deal = {
   frameCount: number;
   payment: Payment | null;
   pendingOrderId?: string | null; // the PayPal order the buyer was last sent to approve
+  shipment?: Shipment | null;
+};
+
+export type Shipment = {
+  carrier: string;
+  trackingNumber: string;
+  trackerId: string | null;
+  addedAt: number;
 };
 
 interface DealStore {
@@ -58,6 +66,7 @@ interface DealStore {
   // Records the payment only if none is recorded yet. Returns false if one already was.
   setPayment(id: string, payment: Payment): Promise<boolean>;
   setPendingOrder(id: string, orderId: string): Promise<void>;
+  setShipment(id: string, shipment: Shipment): Promise<void>;
 }
 
 function memoryStore(): DealStore {
@@ -82,6 +91,10 @@ function memoryStore(): DealStore {
     async setPendingOrder(id, orderId) {
       const row = map.get(id);
       if (row) row.deal = { ...row.deal, pendingOrderId: orderId };
+    },
+    async setShipment(id, shipment) {
+      const row = map.get(id);
+      if (row) row.deal = { ...row.deal, shipment };
     },
   };
 }
@@ -124,6 +137,10 @@ function postgresStore(url: string): DealStore {
     async setPendingOrder(id, orderId) {
       await init();
       await sql`update deals set deal = jsonb_set(deal, '{pendingOrderId}', ${JSON.stringify(orderId)}::jsonb) where id = ${id}`;
+    },
+    async setShipment(id, shipment) {
+      await init();
+      await sql`update deals set deal = jsonb_set(deal, '{shipment}', ${JSON.stringify(shipment)}::jsonb) where id = ${id}`;
     },
   };
 }
