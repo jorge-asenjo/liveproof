@@ -32,8 +32,8 @@ Open https://liveproof-j5u7.onrender.com and press **Sell with a live proof**. T
 
 | Role | Sandbox account | Password |
 |---|---|---|
-| Seller (logs in with PayPal on `/sell`) | `sb-94ici53757812@personal.example.com` | `TODO` |
-| Buyer (pays on the buyer link) | `sb-bdtqz53757811@personal.example.com` | `TODO` |
+| Seller (logs in with PayPal on `/sell`) | `sb-94ici53757812@personal.example.com` | `460>kDxl` |
+| Buyer (pays on the buyer link) | `sb-bdtqz53757811@personal.example.com` | `Q88uu1?E` |
 
 1. Log in with PayPal using the seller account.
 2. Paste a short listing for something you have at hand, for example `Selling my Logitech wireless mouse, works perfectly, $25 shipped`. Any object works.
