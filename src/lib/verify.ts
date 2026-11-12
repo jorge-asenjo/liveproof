@@ -208,6 +208,16 @@ export function decide(facts: ChallengeFacts, obs: Observation): Decision {
       detail: obs.item_is_physical === "physical_object" ? undefined : obs.item_is_physical,
     },
     { id: "continuity", label: "Same scene in both moments", ok: obs.same_scene_both_moments, hard: true },
+    // Concrete signs of editing (a code in a typed font, text that does not follow the paper)
+    // fail the proof. TAMPERING_RULE=warn turns this into an amber warning instead.
+    {
+      id: "untouched",
+      label: "No signs of editing in the frames",
+      ok: obs.tampering_signs.length === 0 || process.env.TAMPERING_RULE === "warn",
+      warn: obs.tampering_signs.length > 0 && process.env.TAMPERING_RULE === "warn",
+      hard: true,
+      detail: obs.tampering_signs[0],
+    },
     { id: "detail", label: "Requested detail visible", ok: obs.proof_detail_visible, hard: false },
   ];
   return { passed: checks.every((c) => c.ok || !c.hard), checks };

@@ -80,6 +80,7 @@ flowchart LR
 Design choices that keep the model honest:
 - **Claude is never told the expected code or gestures,** so it cannot be nudged into "seeing" them. It reports what it sees; [`decide()`](src/lib/verify.ts) compares that with the challenge.
 - **Claude perceives, code decides.** The random code and gestures come from `crypto`, the timing is measured on the server, and the pass/fail rules are fixed code. What Claude contributes is perception: the code it reads, the gestures it sees, whether the item matches, whether it is a real object and the same scene. Those labels are what the rules compare.
+- **Signs of editing fail the proof.** Claude lists concrete signs of editing (a code in a typed font, text that does not follow the paper's angle or light). Any such sign is a failed check. On the edited-photo attacks Claude flagged every one, and it flagged none of the genuine proofs (`TAMPERING_RULE=warn` turns the rule into a warning if it ever proves too strict).
 - **Model labels.** When Claude can read a model label on the item, it copies the text and code compares it with the model in the listing.
 - **Structured outputs** (Zod schemas) for both calls; the frames are treated as untrusted content.
 - **Honest to the buyer:** both pages show what Claude reported, separately from the rules. When Claude can confirm the kind of item but not the exact model, or the label differs from the listing, the check shows in amber, not as a green tick.
