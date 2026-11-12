@@ -187,28 +187,69 @@ export default function SellerFlow({
 }
 
 function Instructions({ computer, proofDetail }: { computer: boolean; proofDetail: string }) {
+  const steps = [
+    { title: "Write the fresh code", body: "A new code appears when you start. Write it big on a piece of paper." },
+    {
+      title: "Item and paper in view",
+      body: computer
+        ? "Hold the paper and the item up to the webcam, then show the gesture we ask for."
+        : "Put the paper next to the item, point the back camera at both, then show the gesture.",
+    },
+    { title: "A surprise gesture", body: "Then a second gesture you could not know in advance, within 15 seconds." },
+  ];
   return (
-    <div className="rounded-xl bg-neutral-100 p-4">
+    <div className="flex flex-col gap-4 rounded-xl bg-desk p-4">
       <p className="font-medium">Your live proof takes about a minute</p>
-      <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700">
-        <li>Have a pen and a piece of paper ready.</li>
-        <li>We show you a fresh code. Write it on the paper.</li>
-        {computer ? (
-          <>
-            <li>Hold the paper and the item together in one hand, in front of the webcam.</li>
-            <li>With your other hand, make the gesture we ask for. Then a surprise one, within 15 seconds.</li>
-          </>
-        ) : (
-          <>
-            <li>Put the paper next to the item on a table and point the back camera at both. No need to hold them.</li>
-            <li>With your free hand, make the gesture we ask for. Then a surprise one, within 15 seconds.</li>
-          </>
-        )}
-        <li>Also show: {proofDetail}.</li>
+      <ol className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {steps.map((s, i) => (
+          <li key={s.title} className="flex flex-col gap-2">
+            <StepPicture step={i} />
+            <p className="font-medium">
+              {i + 1}. {s.title}
+            </p>
+            <p className="text-sm text-neutral-600">{s.body}</p>
+          </li>
+        ))}
       </ol>
-      <p className="mt-3 text-sm text-neutral-500">
+      <p className="text-sm text-neutral-700">
+        Have a pen and paper ready. Also show: <span className="font-medium">{proofDetail}</span>.
+      </p>
+      <p className="text-sm text-neutral-500">
         Item too big for the frame? Lean the paper against it, step back until both are in view, and write the code big.
       </p>
+    </div>
+  );
+}
+
+// Small looping pictures of each step (decorative; the text says the same).
+function StepPicture({ step }: { step: number }) {
+  return (
+    <div aria-hidden="true" className="relative aspect-[4/3] overflow-hidden rounded-lg bg-graphite">
+      <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white">
+        <span className="h-1.5 w-1.5 rounded-full bg-rec" />
+        LIVE
+      </span>
+      {step > 0 && (
+        <div className="absolute bottom-[16%] left-[10%] h-[34%] w-[42%] rounded-md bg-[#3d454f] ring-2 ring-[#59636f]">
+          <span className="absolute left-[18%] top-[22%] h-[56%] w-[30%] rounded-full ring-2 ring-[#6b7682]" />
+          <span className="absolute right-[18%] top-[22%] h-[56%] w-[30%] rounded-full ring-2 ring-[#6b7682]" />
+        </div>
+      )}
+      <div
+        className={`absolute rounded-sm bg-paper px-2 py-1 shadow-md ${step === 0 ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-3deg] px-4 py-3" : "bottom-[14%] right-[10%] rotate-[4deg]"}`}
+      >
+        <span className={`font-hand font-bold text-ink ${step === 0 ? "loop-write block text-4xl" : "text-xl"}`}>HX7CT</span>
+      </div>
+      {step === 1 && <span className="loop-pop absolute right-[14%] top-[12%] text-4xl">👍</span>}
+      {step === 2 && (
+        <>
+          <span className="loop-pop absolute right-[14%] top-[12%] text-4xl">✌️</span>
+          <svg viewBox="0 0 40 40" className="absolute left-[44%] top-[14%] h-10 w-10 -rotate-90">
+            <circle cx="20" cy="20" r="18" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+            <circle cx="20" cy="20" r="18" fill="none" stroke="#ffffff" strokeWidth="4" strokeDasharray="113" className="loop-ring" />
+          </svg>
+        </>
+      )}
     </div>
   );
 }

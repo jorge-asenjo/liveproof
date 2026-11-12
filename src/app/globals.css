@@ -88,3 +88,54 @@ body {
     animation: none;
   }
 }
+
+/* Looping illustrations of the live proof steps (seller instructions). */
+@keyframes loop-write {
+  0%,
+  8% {
+    clip-path: inset(0 100% 0 0);
+  }
+  45%,
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes loop-pop {
+  0%,
+  35% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-12deg);
+  }
+  45%,
+  90% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes loop-ring {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 113;
+  }
+}
+.loop-write {
+  animation: loop-write 4s steps(16, end) infinite;
+}
+.loop-pop {
+  animation: loop-pop 4s ease-out infinite;
+}
+.loop-ring {
+  animation: loop-ring 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loop-write,
+  .loop-pop,
+  .loop-ring {
+    animation: none;
+  }
+}
