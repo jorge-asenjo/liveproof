@@ -215,7 +215,7 @@ function Stops() {
       {EVAL_SUMMARY && (
         <div className="flex flex-col gap-4">
           <p className="max-w-3xl leading-relaxed">
-            We attacked it ourselves. On {EVAL_SUMMARY.cases} recorded attempts, checked by {EVAL_SUMMARY.model}:
+            Tested against attacks on purpose. On {EVAL_SUMMARY.cases} recorded attempts, checked by {EVAL_SUMMARY.model}:
           </p>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-2xl bg-paper p-5 ring-1 ring-line">
