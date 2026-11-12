@@ -25,10 +25,12 @@ export default function SellerFlow({
   seller,
   initialDraft,
   evalCapture = false,
+  presetEvalLabel,
 }: {
   seller: { name: string; email: string; verified: boolean };
   initialDraft: Draft | null;
   evalCapture?: boolean;
+  presetEvalLabel?: string;
 }) {
   const device = useDevice();
   const [text, setText] = useState("");
@@ -37,7 +39,7 @@ export default function SellerFlow({
   const [draft, setDraft] = useState<Draft | null>(initialDraft);
   const [live, setLive] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
-  const [evalLabel, setEvalLabel] = useState("");
+  const [evalLabel, setEvalLabel] = useState(presetEvalLabel ?? "");
 
   async function readListing() {
     setBusy(true);
@@ -138,6 +140,7 @@ export default function SellerFlow({
           computer={device === "computer"}
           onResult={setResult}
           evalCapture={evalCapture}
+          evalPickerHidden={!!presetEvalLabel}
           evalLabel={evalLabel}
           onEvalLabel={setEvalLabel}
         />

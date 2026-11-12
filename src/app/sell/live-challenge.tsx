@@ -47,6 +47,7 @@ export default function LiveChallenge({
   computer,
   onResult,
   evalCapture = false,
+  evalPickerHidden = false,
   evalLabel = "",
   onEvalLabel,
 }: {
@@ -54,6 +55,7 @@ export default function LiveChallenge({
   computer: boolean;
   onResult: (r: VerifyResult) => void;
   evalCapture?: boolean;
+  evalPickerHidden?: boolean;
   evalLabel?: string;
   onEvalLabel?: (value: string) => void;
 }) {
@@ -307,7 +309,7 @@ export default function LiveChallenge({
               : "Get your pen and paper ready and point the back camera at the item on the table."}{" "}
             The code appears when you press the button and is valid for 2 minutes.
           </p>
-          {evalCapture && (
+          {evalCapture && !evalPickerHidden && (
             <label className="flex flex-col gap-1 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
               <span className="font-medium">Eval capture is on for this account. What is this attempt?</span>
               <select

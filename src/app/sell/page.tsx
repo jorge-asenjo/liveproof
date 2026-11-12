@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { evalCaptureEnabled } from "@/lib/attempts";
+import { EVAL_LABELS } from "@/lib/eval-labels";
 import { sellerId, store } from "@/lib/challenge";
 import { getSeller } from "@/lib/session";
 import SellerFlow from "./seller-flow";
@@ -36,7 +37,7 @@ const LOGIN_NOTICES: Record<string, string> = {
 async function SellerGate({ searchParams }: Pick<PageProps<"/sell">, "searchParams">) {
   await connection(); // per-request: the session check uses the current time
   const seller = await getSeller();
-  const { login, draft: draftParam } = await searchParams;
+  const { login, draft: draftParam, eval: evalParam } = await searchParams;
   if (!seller) {
     const notice = typeof login === "string" ? LOGIN_NOTICES[login] : undefined;
     return (
@@ -62,6 +63,8 @@ async function SellerGate({ searchParams }: Pick<PageProps<"/sell">, "searchPara
     <SellerFlow
       initialDraft={initialDraft}
       evalCapture={evalCaptureEnabled(seller)}
+      // ?eval=<label> presets the eval label and hides the picker (used while recording the demo video).
+      presetEvalLabel={typeof evalParam === "string" && EVAL_LABELS.some((l) => l.id === evalParam) ? evalParam : undefined}
       seller={{
         name: seller.name ?? "PayPal user",
         email: seller.email ?? "",
