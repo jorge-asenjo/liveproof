@@ -95,6 +95,8 @@ export type NewOrder = {
   cancelUrl: string;
   // The item as PayPal shows it to the buyer: its link and image are the live proof.
   item?: { name: string; url: string; imageUrl: string; description: string };
+  // Approved in the PayPal button's popup (JS SDK) instead of a full-page redirect.
+  forSdk?: boolean;
 };
 
 // Creates the order with the payee fixed by the server. Returns the order id and the
@@ -137,22 +139,26 @@ export async function createOrder(order: NewOrder): Promise<{ id: string; approv
           payee: order.payee,
         },
       ],
-      payment_source: {
-        paypal: {
-          experience_context: {
-            user_action: "PAY_NOW",
-            shipping_preference: "GET_FROM_FILE",
-            return_url: order.returnUrl,
-            cancel_url: order.cancelUrl,
-          },
-        },
-      },
+      ...(order.forSdk
+        ? {}
+        : {
+            payment_source: {
+              paypal: {
+                experience_context: {
+                  user_action: "PAY_NOW",
+                  shipping_preference: "GET_FROM_FILE",
+                  return_url: order.returnUrl,
+                  cancel_url: order.cancelUrl,
+                },
+              },
+            },
+          }),
     },
   });
   if (!ok) throw new PayPalError(`create order ${status}`, status, body);
   const approve = body.links?.find((l: { rel: string }) => l.rel === "payer-action" || l.rel === "approve");
-  if (!approve?.href) throw new PayPalError("create order: no approval link", status, body);
-  return { id: body.id, approveUrl: approve.href };
+  if (!approve?.href && !order.forSdk) throw new PayPalError("create order: no approval link", status, body);
+  return { id: body.id, approveUrl: approve?.href ?? "" };
 }
 
 export type CapturedOrder = {

@@ -62,6 +62,7 @@ flowchart LR
 
 ### PayPal
 - **Log in with PayPal (Identity API).** Scopes `openid profile email https://uri.paypal.com/services/paypalattributes`. LiveProof reads `payer_id`, `name`, `email` and `verified_account` from `/v1/identity/oauth2/userinfo` and keeps them in a signed, httpOnly session cookie.
+- **PayPal's own button (JS SDK).** The buyer pays with the PayPal button and popup from the JS SDK. The button only receives an order id: the order is created on the server, and the capture happens on the server after the checks below. A full-page redirect to PayPal stays as a fallback without JavaScript.
 - **Orders v2.** The order is created on the server with `purchase_units[].payee.merchant_id` set to the seller's `payer_id` (with the verified email as a fallback), `intent: CAPTURE` and the deal id in `custom_id`. The request from the buyer carries no payee at all, so a copied or edited link cannot redirect the money.
 - **Check, then capture.** When the buyer returns, the server reads the order and checks `custom_id`, the amount, the currency and the payee against the deal. Only then it captures (idempotent with `PayPal-Request-Id`) and branches on the capture status: `COMPLETED` is shown as paid, `PENDING` as pending, and a payee mismatch in red, never as paid. The buyer page shows the capture id, the payee and PayPal's seller protection status.
 - **The proof travels with the PayPal transaction.** The order's item links to the live proof and uses its first frame as the item image, so the buyer sees the proof on PayPal's own checkout too.

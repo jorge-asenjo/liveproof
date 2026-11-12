@@ -8,6 +8,7 @@ import { getSeller } from "@/lib/session";
 import { reconcile } from "@/lib/settle";
 import { GESTURE_INFO } from "@/lib/gestures";
 import ClaudeReport from "../../claude-report";
+import PayPalButton from "./paypal-button";
 
 export const metadata: Metadata = {
   title: "Live proof deal · LiveProof",
@@ -214,12 +215,14 @@ function PayCard({ deal }: { deal: Deal }) {
         </p>
       </div>
       <SellerAccount deal={deal} />
+      <p className="text-lg font-semibold">Pay {money(deal.amount.value, deal.amount.currency)}</p>
+      {process.env.PAYPAL_CLIENT_ID && (
+        <PayPalButton dealId={deal.id} clientId={process.env.PAYPAL_CLIENT_ID} currency={deal.amount.currency} />
+      )}
+      {/* Without JavaScript, or if the PayPal button cannot load: a full-page redirect to PayPal. */}
       <form action={`/api/deal/${deal.id}/pay`} method="post">
-        <button
-          type="submit"
-          className="w-full rounded-full bg-[#ffc439] px-6 py-4 text-lg font-semibold text-[#003087] hover:bg-[#f2ba36]"
-        >
-          Pay {money(deal.amount.value, deal.amount.currency)} with PayPal
+        <button type="submit" className="text-sm text-neutral-600 underline">
+          Or pay on PayPal&apos;s page
         </button>
       </form>
       <p className="text-xs text-neutral-500">
