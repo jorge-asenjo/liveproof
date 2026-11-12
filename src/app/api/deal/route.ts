@@ -1,4 +1,4 @@
-import { ChallengeError, DEAL_WINDOW_MS, getOwnedChallenge, newId } from "@/lib/challenge";
+import { ChallengeError, DEAL_WINDOW_MS, getOwnedChallenge, newId, sellerId, store } from "@/lib/challenge";
 import { DEAL_CURRENCIES, deals, parseAmount, type Deal } from "@/lib/deals";
 import { baseUrl } from "@/lib/paypal";
 import { getSeller } from "@/lib/session";
@@ -51,6 +51,15 @@ export async function POST(request: Request) {
       checks: challenge.decision.checks,
       seen: challenge.observation.item_description,
       observation: challenge.observation,
+      // Shown to the buyer: someone who keeps retrying until a fake gets through stands out.
+      failedBefore: [...store.challenges.values()].filter(
+        (c) =>
+          c.id !== challenge.id &&
+          sellerId(c.seller) === sellerId(challenge.seller) &&
+          c.status === "failed" &&
+          c.createdAt < challenge.createdAt &&
+          challenge.createdAt - c.createdAt < 60 * 60_000,
+      ).length,
       model: challenge.verify.model,
       verifyMs: challenge.verify.latencyMs,
     },

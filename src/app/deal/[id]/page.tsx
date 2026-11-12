@@ -223,6 +223,13 @@ function ProofCard({ deal, now }: { deal: Deal; now: number }) {
         <p className="text-sm text-neutral-600">
           Proved live on camera {ago(now - pr.provedAt)} · {new Date(pr.provedAt).toUTCString()}
         </p>
+        {pr.failedBefore !== undefined && (
+          <p className={`mt-1 text-sm ${pr.failedBefore > 2 ? "font-medium text-amber-700" : "text-neutral-600"}`}>
+            {pr.failedBefore === 0
+              ? "Passed on the first try."
+              : `${pr.failedBefore} failed ${pr.failedBefore === 1 ? "attempt" : "attempts"} by this account in the hour before this one.`}
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <figure className="flex flex-col gap-1">
@@ -259,8 +266,8 @@ function ProofCard({ deal, now }: { deal: Deal; now: number }) {
         </details>
       )}
       <p className="text-xs text-neutral-500">
-        The code and the surprise gesture were random and shown only once the camera was on, so this cannot be an old or prepared
-        photo. Seen on camera: {pr.seen.replace(/[.\s]+$/, "")}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the
+        The code and the surprise gesture were random and shown only during the live proof, so an old photo or a video recorded in
+        advance cannot pass. Seen on camera: {pr.seen.replace(/[.\s]+$/, "")}. Checked by {pr.model} in {(pr.verifyMs / 1000).toFixed(1)} s; fixed rules, not the
         model, decided the result.
       </p>
     </section>

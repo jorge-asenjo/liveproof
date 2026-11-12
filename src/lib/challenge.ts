@@ -11,7 +11,7 @@ import type { Decision, Observation } from "./verify";
 // No look-alike characters (0/O, 1/I/L, 2/Z, 5/S, 6/G, 8/B, Q).
 const CODE_ALPHABET = "ACDEFHJKMNPRTUVWXY34679";
 export const CODE_LENGTH = 5;
-export const WRITE_WINDOW_MS = 3 * 60_000; // from showing the code to moment 1
+export const WRITE_WINDOW_MS = 2 * 60_000; // from showing the code to moment 1
 // From revealing the surprise gesture to receiving moment 2, upload included. 10 s was too
 // tight on Render (a genuine attempt took 9.6 s); 15 s is still far too short to fake a frame.
 export const GESTURE_B_WINDOW_MS = 15_000;

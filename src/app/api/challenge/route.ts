@@ -1,5 +1,5 @@
 import { evalCaptureEnabled } from "@/lib/attempts";
-import { BudgetError, spendClaudeCall } from "@/lib/budget";
+import { BudgetError, clientIp, spendClaudeCall } from "@/lib/budget";
 import { CODE_LENGTH, createChallenge, sellerId, store, WRITE_WINDOW_MS } from "@/lib/challenge";
 import { parseEvalLabel } from "@/lib/eval-labels";
 import { getSeller } from "@/lib/session";
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   // The verification at the end of the challenge is one Claude call: count it now, before
   // the seller writes the code, so nobody does the whole proof only to hit the daily limit.
   try {
-    await spendClaudeCall();
+    await spendClaudeCall(clientIp(request));
   } catch (err) {
     if (err instanceof BudgetError) return Response.json({ error: err.message }, { status: err.status });
     throw err;

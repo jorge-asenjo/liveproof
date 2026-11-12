@@ -44,6 +44,7 @@ export type Deal = {
     model: string;
     verifyMs: number;
     observation?: Observation; // Claude's report; missing on deals made before 12-nov
+    failedBefore?: number; // failed live proofs by the same account in the hour before this one
   };
   frameCount: number;
   payment: Payment | null;

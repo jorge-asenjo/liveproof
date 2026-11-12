@@ -1,4 +1,4 @@
-import { BudgetError, spendClaudeCall } from "@/lib/budget";
+import { BudgetError, clientIp, spendClaudeCall } from "@/lib/budget";
 import { newId, sellerId, store } from "@/lib/challenge";
 import { parseListing } from "@/lib/listing";
 import { getSeller } from "@/lib/session";
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Paste the listing text (10 to 5000 characters)" }, { status: 400 });
   }
   try {
-    await spendClaudeCall();
+    await spendClaudeCall(clientIp(request));
     const listing = await parseListing(text);
     const draft = { id: newId(), sellerId: sellerId(seller), listingText: text, listing, createdAt: Date.now() };
     store.drafts.set(draft.id, draft);
