@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { saveAttempt } from "@/lib/attempts";
 import {
   ChallengeError,
+  GESTURE_B_SHOWN_MS,
   GESTURE_B_WINDOW_MS,
   gestureBDelayMs,
   getOwnedChallenge,
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/challen
         gestureB: challenge.gestureB!,
         gestureBDelayMs: delayMs,
         gestureBWindowMs: GESTURE_B_WINDOW_MS,
+        gestureBShownMs: GESTURE_B_SHOWN_MS,
       },
       result.observation,
     );

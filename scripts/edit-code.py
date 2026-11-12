@@ -34,6 +34,7 @@ for n, (code, font_name, size, color) in enumerate(variants, 1):
         im = Image.alpha_composite(im.convert("RGBA"), layer).convert("RGB")
         im.save(out / f, quality=85)
     m = dict(meta); m.update(label="attack", attack="edited_photo", code=code, derivedFrom=base.name,
+        files={"m1": [f for f in boxes if f.startswith("m1")], "m2": [f for f in boxes if f.startswith("m2")]},
         notes=f"Old real proof with the code painted over and {code} written with the {font_name} font (gestures as shown). Best case for the attacker: ignores the 15 s window.")
     (out / "meta.json").write_text(json.dumps(m, indent=2), encoding="utf-8")
     print(out)

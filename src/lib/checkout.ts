@@ -7,6 +7,7 @@ import { settle, type SettleResult } from "./settle";
 export type Start =
   | { kind: "approve"; orderId: string; approveUrl: string }
   | { kind: "settled"; result: SettleResult }
+  | { kind: "unknown" } // PayPal could not tell us about the previous order: do not start another
   | { kind: "error" };
 
 // For the deal page's ?payment= notice.
@@ -27,6 +28,7 @@ export async function startPayment(deal: Deal, opts: { reuse: boolean; forSdk: b
       }
     } catch (err) {
       console.error("pending order check failed", { deal: deal.id, detail: String(err) });
+      return { kind: "unknown" };
     }
   }
 

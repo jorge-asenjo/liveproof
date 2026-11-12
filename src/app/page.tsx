@@ -154,7 +154,7 @@ const STEPS = [
   },
   {
     title: "The buyer pays the account that proved it",
-    body: "The buyer link shows the proof frames and the verified account. LiveProof creates the PayPal order on the server with that account as the payee, and after the capture it checks in PayPal's own answer that the money went there.",
+    body: "The buyer link shows the proof frames and the verified account. LiveProof creates the PayPal order on the server with that account as the payee, and it checks the order before capturing it, then shows the account PayPal says it paid.",
   },
 ];
 
@@ -182,7 +182,7 @@ const ATTACKS = [
   },
   {
     attack: "A photo edited to show the new code",
-    defence: "The code has to look handwritten on paper, and the surprise gesture leaves 15 seconds to fake a second frame of the same scene.",
+    defence: "The code has to look handwritten on paper, with no signs of editing, and it must still be in view, in the same scene, for a surprise gesture with 15 seconds to answer.",
   },
   {
     attack: "A different item than the one listed",

@@ -12,9 +12,10 @@ import type { Decision, Observation } from "./verify";
 const CODE_ALPHABET = "ACDEFHJKMNPRTUVWXY34679";
 export const CODE_LENGTH = 5;
 export const WRITE_WINDOW_MS = 2 * 60_000; // from showing the code to moment 1
-// From revealing the surprise gesture to receiving moment 2, upload included. 10 s was too
-// tight on Render (a genuine attempt took 9.6 s); 15 s is still far too short to fake a frame.
-export const GESTURE_B_WINDOW_MS = 15_000;
+// The seller sees a 15 s countdown for the surprise gesture; the server allows 1.5 s more
+// for the frames to upload. (10 s was too tight on Render: a genuine attempt took 9.6 s.)
+export const GESTURE_B_SHOWN_MS = 15_000;
+export const GESTURE_B_WINDOW_MS = GESTURE_B_SHOWN_MS + 1_500;
 export const MAX_FRAMES_PER_MOMENT = 3;
 export const MAX_FRAME_CHARS = 1_500_000; // ~1.1 MB of JPEG per frame
 // A passed proof can be turned into a buyer link for this long. After that, prove again.

@@ -25,6 +25,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "This live proof is too old. Do a new one." }, { status: 410 });
   }
 
+  // Buyers are told they pay a verified PayPal account, so only verified accounts can sell.
+  if (!(challenge.seller.verified_account === true || challenge.seller.verified_account === "true")) {
+    return Response.json({ error: "Only a verified PayPal account can create a buyer link. Verify your PayPal account first." }, { status: 403 });
+  }
+
   const value = parseAmount(body?.amount);
   if (!value) return Response.json({ error: "Enter a price between 0.01 and 10,000" }, { status: 400 });
   const listed = challenge.listing.currency?.toUpperCase();
@@ -57,6 +62,7 @@ export async function POST(request: Request) {
           c.id !== challenge.id &&
           sellerId(c.seller) === sellerId(challenge.seller) &&
           c.status === "failed" &&
+          !!c.decision && // a failed check, not an AI service error
           c.createdAt < challenge.createdAt &&
           challenge.createdAt - c.createdAt < 60 * 60_000,
       ).length,

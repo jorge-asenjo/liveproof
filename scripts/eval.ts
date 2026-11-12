@@ -8,12 +8,13 @@
 // Set "label" to "genuine" or "attack" (and "attack" to a short type) before running;
 // unlabelled cases are skipped.
 //
-// Replays (an old proof sent for a new code) are not in this set on purpose: Claude never
-// sees the expected code, so a replay can only pass if two random codes collide
-// (1 in 23^5 = 6.4 million). This eval measures the attacks that depend on the model.
+// Replays (an old proof sent for a new code, made by scripts/derive-attacks.ts) mostly test
+// that Claude reads the code it sees: Claude never gets the expected code, so a replay only
+// passes if two random codes collide (1 in 23^5 = 6.4 million) or Claude misreads.
+// Cases that end in an error are reported apart, never counted as rejected attacks.
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { GESTURE_B_WINDOW_MS } from "../src/lib/challenge";
+import { GESTURE_B_SHOWN_MS, GESTURE_B_WINDOW_MS } from "../src/lib/challenge";
 import type { Gesture } from "../src/lib/gestures";
 import { decide, observe } from "../src/lib/verify";
 
@@ -78,6 +79,7 @@ async function runCase(name: string): Promise<Row | null> {
         gestureB: meta.gestureB,
         gestureBDelayMs: meta.gestureBDelayMs,
         gestureBWindowMs: GESTURE_B_WINDOW_MS,
+        gestureBShownMs: GESTURE_B_SHOWN_MS,
       },
       result.observation,
     );
@@ -113,8 +115,8 @@ async function main() {
     }),
   );
 
-  const genuine = rows.filter((r) => r.label === "genuine");
-  const attacks = rows.filter((r) => r.label === "attack");
+  const genuine = rows.filter((r) => r.label === "genuine" && !r.error);
+  const attacks = rows.filter((r) => r.label === "attack" && !r.error);
   const latencies = rows.filter((r) => r.latencyMs > 0).map((r) => r.latencyMs).sort((a, b) => a - b);
   const pct = (p: number) => latencies[Math.min(latencies.length - 1, Math.floor(p * latencies.length))] ?? 0;
   console.log(`\nModel: ${model}`);

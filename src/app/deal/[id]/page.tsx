@@ -226,8 +226,8 @@ function PayCard({ deal }: { deal: Deal }) {
         </button>
       </form>
       <p className="text-xs text-neutral-500">
-        PayPal Goods and Services, with buyer protection. If the seller asks you to pay another account, use Friends and Family or pay
-        an invoice they send you, stop: that is not the account that proved it has the item.
+        A regular PayPal checkout purchase, so PayPal&apos;s purchase protection applies to eligible items. If the seller asks you to pay
+        another account, use Friends and Family or pay an invoice they send you, stop: that is not the account that proved it has the item.
       </p>
     </section>
   );

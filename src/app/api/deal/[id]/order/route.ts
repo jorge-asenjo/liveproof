@@ -13,5 +13,6 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/deal/[
   const start = await startPayment(deal, { reuse: false, forSdk: true });
   if (start.kind === "approve") return Response.json({ id: start.orderId });
   if (start.kind === "settled") return Response.json({ settled: paymentParam(start.result) });
+  if (start.kind === "unknown") return Response.json({ settled: "processing" });
   return Response.json({ error: "PayPal could not create the order. Try again." }, { status: 502 });
 }

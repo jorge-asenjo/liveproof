@@ -18,5 +18,6 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/deal/[
   const start = await startPayment(deal, { reuse: false, forSdk: false });
   if (start.kind === "approve") return Response.redirect(start.approveUrl, 303);
   if (start.kind === "settled") return Response.redirect(`${dealUrl}?payment=${paymentParam(start.result)}`, 303);
+  if (start.kind === "unknown") return Response.redirect(`${dealUrl}?payment=processing`, 303);
   return Response.redirect(`${dealUrl}?payment=error`, 303);
 }

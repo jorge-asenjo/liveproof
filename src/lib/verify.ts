@@ -130,7 +130,8 @@ export type ChallengeFacts = {
   gestureA: Gesture;
   gestureB: Gesture;
   gestureBDelayMs: number;
-  gestureBWindowMs: number;
+  gestureBWindowMs: number; // server limit, upload included
+  gestureBShownMs?: number; // what the seller saw on the countdown
 };
 
 // warn: passed, but the buyer should know something (shown in amber, not green).
@@ -176,9 +177,13 @@ export function normalizeCode(value: string | null | undefined) {
 
 export function decide(facts: ChallengeFacts, obs: Observation): Decision {
   const { moment1: m1, moment2: m2 } = obs;
-  const reads = [m1, m2].filter((m) => m.code_medium === "handwritten_paper").map((m) => normalizeCode(m.handwritten_code));
-  const codeOk = reads.includes(facts.code);
-  const anyRead = normalizeCode(m1.handwritten_code) || normalizeCode(m2.handwritten_code) || "nothing legible";
+  // The code must be read, handwritten, in both moments: a clip prepared in advance for the
+  // surprise gesture cannot show a code that did not exist yet.
+  const read = (m: Observation["moment1"]) => (m.code_medium === "handwritten_paper" ? normalizeCode(m.handwritten_code) : "");
+  const r1 = read(m1);
+  const r2 = read(m2);
+  const codeOk = r1 === facts.code && r2 === facts.code;
+  const anyRead = `${r1 || "nothing legible"}, then ${r2 || "nothing legible"}`;
   const a = GESTURE_INFO[facts.gestureA];
   const b = GESTURE_INFO[facts.gestureB];
   const seconds = (facts.gestureBDelayMs / 1000).toFixed(1);
@@ -186,7 +191,7 @@ export function decide(facts: ChallengeFacts, obs: Observation): Decision {
   const checks: Check[] = [
     {
       id: "fresh_code",
-      label: `Fresh code ${facts.code} handwritten on paper`,
+      label: `Fresh code ${facts.code} handwritten on paper, in both moments`,
       ok: codeOk,
       hard: true,
       detail: codeOk ? undefined : `read: ${anyRead}`,
@@ -194,7 +199,7 @@ export function decide(facts: ChallengeFacts, obs: Observation): Decision {
     { id: "gesture_a", label: `First gesture ${a.emoji} ${a.label}`, ok: m1.gesture === facts.gestureA, hard: true, detail: m1.gesture === facts.gestureA ? undefined : `saw: ${m1.gesture}` },
     {
       id: "gesture_b",
-      label: `Surprise gesture ${b.emoji} ${b.label} within ${facts.gestureBWindowMs / 1000} s`,
+      label: `Surprise gesture ${b.emoji} ${b.label} within ${(facts.gestureBShownMs ?? facts.gestureBWindowMs) / 1000} s`,
       ok: m2.gesture === facts.gestureB && facts.gestureBDelayMs <= facts.gestureBWindowMs,
       hard: true,
       detail: m2.gesture !== facts.gestureB ? `saw: ${m2.gesture}` : `${seconds} s`,

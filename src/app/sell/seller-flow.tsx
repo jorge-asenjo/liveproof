@@ -76,6 +76,12 @@ export default function SellerFlow({
           {seller.verified ? "Verified PayPal account" : "PayPal account not verified"}
         </span>
       </section>
+      {!seller.verified && (
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Buyers only pay verified PayPal accounts. You can try the live proof, but to create a buyer link, verify your PayPal account
+          first.
+        </p>
+      )}
 
       {!draft && (
         <section className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">

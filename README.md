@@ -64,10 +64,10 @@ flowchart LR
 - **Log in with PayPal (Identity API).** Scopes `openid profile email https://uri.paypal.com/services/paypalattributes`. LiveProof reads `payer_id`, `name`, `email` and `verified_account` from `/v1/identity/oauth2/userinfo` and keeps them in a signed, httpOnly session cookie.
 - **PayPal's own button (JS SDK).** The buyer pays with the PayPal button and popup from the JS SDK. The button only receives an order id: the order is created on the server, and the capture happens on the server after the checks below. A full-page redirect to PayPal stays as a fallback without JavaScript.
 - **Orders v2.** The order is created on the server with `purchase_units[].payee.merchant_id` set to the seller's `payer_id` (with the verified email as a fallback), `intent: CAPTURE` and the deal id in `custom_id`. The request from the buyer carries no payee at all, so a copied or edited link cannot redirect the money.
-- **Check, then capture.** When the buyer returns, the server reads the order and checks `custom_id`, the amount, the currency and the payee against the deal. Only then it captures (idempotent with `PayPal-Request-Id`) and branches on the capture status: `COMPLETED` is shown as paid, `PENDING` as pending, and a payee mismatch in red, never as paid. The buyer page shows the capture id, the payee and PayPal's seller protection status.
+- **Check, then capture.** When the buyer returns, the server reads the order and checks `custom_id`, the amount, the currency and the payee against the deal. Only then it captures (idempotent with `PayPal-Request-Id`) and branches on the capture status: `COMPLETED` is shown as paid, `PENDING` as pending, and `DECLINED` is never recorded. An order whose payee is not the account that did the proof is never captured. The buyer page shows the capture id, the payee and PayPal's seller protection status.
 - **The proof travels with the PayPal transaction.** The order's item links to the live proof and uses its first frame as the item image, so the buyer sees the proof on PayPal's own checkout too.
 - **Shipment tracking (Orders v2 `/track`).** After the payment, the seller (logged in with the same PayPal account) adds the carrier and tracking number on the deal page. LiveProof registers it on the PayPal order with `notify_payer` and the item linked to the proof; shipping with tracking to the address on the transaction is what PayPal Seller Protection asks for.
-- **One payment per deal.** The order carries `invoice_id`, the payment is recorded with a conditional update, and pressing Pay again reuses or settles the order the buyer already has. If something fails after PayPal may have taken the money, the buyer is told not to pay again, and the deal page reconciles with PayPal (`GET` order) on its next load. There are no webhooks yet.
+- **One payment per deal.** The order carries `invoice_id`, the payment is recorded with a conditional update, only the deal's latest order can ever be captured (so two open tabs cannot pay twice), and pressing Pay again finishes an order the buyer already approved instead of starting a new one. If something fails after PayPal may have taken the money, the buyer is told not to pay again, and the deal page reconciles with PayPal (`GET` order) on its next load. There are no webhooks yet.
 - Code: [`src/lib/paypal.ts`](src/lib/paypal.ts), [`src/lib/settle.ts`](src/lib/settle.ts), [`src/app/api/deal/[id]/pay/route.ts`](src/app/api/deal/%5Bid%5D/pay/route.ts), [`src/app/api/deal/[id]/return/route.ts`](src/app/api/deal/%5Bid%5D/return/route.ts).
 
 ### AI
@@ -79,8 +79,10 @@ flowchart LR
 
 Design choices that keep the model honest:
 - **Claude is never told the expected code or gestures,** so it cannot be nudged into "seeing" them. It reports what it sees; [`decide()`](src/lib/verify.ts) compares that with the challenge.
+- **The code must be in both moments.** The fresh handwritten code has to be read in the first frame and again with the surprise gesture, so a clip prepared in advance for the surprise gesture cannot pass.
+- **Only verified PayPal accounts sell.** Anyone can try the live proof, but only an account that PayPal reports as verified can create a buyer link.
 - **Claude perceives, code decides.** The random code and gestures come from `crypto`, the timing is measured on the server, and the pass/fail rules are fixed code. What Claude contributes is perception: the code it reads, the gestures it sees, whether the item matches, whether it is a real object and the same scene. Those labels are what the rules compare.
-- **Signs of editing fail the proof.** Claude lists concrete signs of editing (a code in a typed font, text that does not follow the paper's angle or light). Any such sign is a failed check. On the edited-photo attacks Claude flagged every one, and it flagged none of the genuine proofs (`TAMPERING_RULE=warn` turns the rule into a warning if it ever proves too strict).
+- **Signs of editing fail the proof.** Claude lists concrete signs of editing (a code in a typed font, text that does not follow the paper's angle or light). Any such sign is a failed check. In two runs over the three edited-photo attacks and the genuine proof they came from, Claude flagged all six edited checks and neither genuine one; the rule is re-checked on every new recording (`TAMPERING_RULE=warn` turns it into a warning if it proves too strict).
 - **Model labels.** When Claude can read a model label on the item, it copies the text and code compares it with the model in the listing.
 - **Structured outputs** (Zod schemas) for both calls; the frames are treated as untrusted content.
 - **Honest to the buyer:** both pages show what Claude reported, separately from the rules. When Claude can confirm the kind of item but not the exact model, or the label differs from the listing, the check shows in amber, not as a green tick.
@@ -108,8 +110,8 @@ npm run eval -- ../eval/attempts --model claude-haiku-5-5
 - API keys live in environment variables only.
 - A buyer link stores one frame per moment, so the buyer can see the proof. Nothing else from the camera is kept.
 - Eval capture is off by default. It can only be turned on for listed PayPal accounts (`EVAL_CAPTURE_SELLERS`); it was used only for the project's own sandbox test account.
-- `MAX_CLAUDE_CALLS_PER_DAY` and `MAX_CLAUDE_CALLS_PER_IP` cap the AI checks per day, overall and per visitor, so the public demo cannot run up the bill or be used up by one person.
-- The buyer page shows how many failed live proofs the same account made in the hour before the one that passed.
+- `MAX_CLAUDE_CALLS_PER_DAY` and `MAX_CLAUDE_CALLS_PER_IP` cap the AI checks per day, overall and per visitor, so the public demo cannot run up the bill, and it is harder for one person to use it up.
+- The buyer page shows how many failed live proofs the same account made in the hour before the one that passed (as seen by the server, which keeps attempts in memory).
 
 ## Limitations
 - LiveProof does not detect AI images. It makes a proof expensive to fake: fresh, physical, timed and tied to the account that gets paid.
